@@ -1,0 +1,7 @@
+# Ignorar SDKs pesados
+android-sdk/
+flutter/
+
+# Archivos ocultos del sistema operativo
+.DS_Store
+Thumbs.db
