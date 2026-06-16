@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
-import 'package:connectivity_plus/connectivity_plus.dart';
-import 'dart:convert';
-import 'config.dart';
+import 'screens/general_screen.dart';
+import 'screens/player_screen.dart';
+import 'screens/ranking_screen.dart';
+import 'screens/tournaments_screen.dart';
+import 'screens/settings_screen.dart';
 
 void main() {
   runApp(const TennisManagerApp());
@@ -15,82 +16,80 @@ class TennisManagerApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'Tennis Manager',
-      theme: ThemeData(colorSchemeSeed: Colors.green, useMaterial3: true),
-      home: const HomeScreen(),
+      debugShowCheckedModeBanner: false,
+      theme: ThemeData(
+        colorSchemeSeed: const Color(0xFF2E7D32), // Verde tenis
+        useMaterial3: true,
+        fontFamily: 'Roboto',
+      ),
+      home: const MainNavigation(),
     );
   }
 }
 
-class HomeScreen extends StatefulWidget {
-  const HomeScreen({super.key});
+class MainNavigation extends StatefulWidget {
+  const MainNavigation({super.key});
 
   @override
-  State<HomeScreen> createState() => _HomeScreenState();
+  State<MainNavigation> createState() => _MainNavigationState();
 }
 
-class _HomeScreenState extends State<HomeScreen> {
-  String _serverTime = 'Pulsa el botón para consultar el servidor';
-  bool _loading = false;
+class _MainNavigationState extends State<MainNavigation> {
+  int _currentIndex = 0;
 
-  Future<void> _fetchServerTime() async {
-    // Comprobar conexión
-    final connectivity = await Connectivity().checkConnectivity();
-    if (connectivity.contains(ConnectivityResult.none)) {
-      setState(
-        () => _serverTime = 'Sin conexión. Este juego requiere internet.',
-      );
-      return;
-    }
+  final List<Widget> _screens = const [
+    GeneralScreen(),
+    PlayerScreen(),
+    RankingScreen(),
+    TournamentsScreen(),
+    SettingsScreen(),
+  ];
 
-    setState(() => _loading = true);
-
-    try {
-      final response = await http
-          .get(Uri.parse('${Config.apiBaseUrl}/GetServerTime'))
-          .timeout(const Duration(seconds: 10));
-
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        setState(
-          () => _serverTime =
-              '${data['message']}\n\nHora UTC: ${data['serverTime']}',
-        );
-      } else {
-        setState(
-          () => _serverTime = 'Error del servidor: ${response.statusCode}',
-        );
-      }
-    } catch (e) {
-      setState(() => _serverTime = 'No se pudo conectar con el servidor:\n$e');
-    } finally {
-      setState(() => _loading = false);
-    }
-  }
+  final List<NavigationDestination> _destinations = const [
+    NavigationDestination(
+      icon: Icon(Icons.home_outlined),
+      selectedIcon: Icon(Icons.home_rounded),
+      label: 'General',
+    ),
+    NavigationDestination(
+      icon: Icon(Icons.person_outline_rounded),
+      selectedIcon: Icon(Icons.person_rounded),
+      label: 'Jugador',
+    ),
+    NavigationDestination(
+      icon: Icon(Icons.leaderboard_outlined),
+      selectedIcon: Icon(Icons.leaderboard_rounded),
+      label: 'Ranking',
+    ),
+    NavigationDestination(
+      icon: Icon(Icons.emoji_events_outlined),
+      selectedIcon: Icon(Icons.emoji_events_rounded),
+      label: 'Torneos',
+    ),
+    NavigationDestination(
+      icon: Icon(Icons.settings_outlined),
+      selectedIcon: Icon(Icons.settings_rounded),
+      label: 'Ajustes',
+    ),
+  ];
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Tennis Manager')),
-      body: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Text(
-              _serverTime,
-              textAlign: TextAlign.center,
-              style: Theme.of(context).textTheme.bodyLarge,
-            ),
-            const SizedBox(height: 32),
-            _loading
-                ? const CircularProgressIndicator()
-                : ElevatedButton.icon(
-                    onPressed: _fetchServerTime,
-                    icon: const Icon(Icons.cloud_sync),
-                    label: const Text('Consultar servidor'),
-                  ),
-          ],
+      appBar: AppBar(
+        title: Text(
+          _destinations[_currentIndex].label,
+          style: const TextStyle(fontWeight: FontWeight.bold),
         ),
+        centerTitle: false,
+        elevation: 0,
+      ),
+      body: IndexedStack(index: _currentIndex, children: _screens),
+      bottomNavigationBar: NavigationBar(
+        selectedIndex: _currentIndex,
+        onDestinationSelected: (index) => setState(() => _currentIndex = index),
+        destinations: _destinations,
+        labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
       ),
     );
   }
