@@ -4,6 +4,7 @@ import 'screens/player_screen.dart';
 import 'screens/ranking_screen.dart';
 import 'screens/tournaments_screen.dart';
 import 'screens/settings_screen.dart';
+import 'screens/widgets/app_drawer.dart';
 
 void main() {
   runApp(const TennisManagerApp());
@@ -18,7 +19,7 @@ class TennisManagerApp extends StatelessWidget {
       title: 'Tennis Manager',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
-        colorSchemeSeed: const Color(0xFF2E7D32), // Verde tenis
+        colorSchemeSeed: const Color(0xFF2E7D32),
         useMaterial3: true,
         fontFamily: 'Roboto',
       ),
@@ -45,52 +46,35 @@ class _MainNavigationState extends State<MainNavigation> {
     SettingsScreen(),
   ];
 
-  final List<NavigationDestination> _destinations = const [
-    NavigationDestination(
-      icon: Icon(Icons.home_outlined),
-      selectedIcon: Icon(Icons.home_rounded),
-      label: 'General',
-    ),
-    NavigationDestination(
-      icon: Icon(Icons.person_outline_rounded),
-      selectedIcon: Icon(Icons.person_rounded),
-      label: 'Jugador',
-    ),
-    NavigationDestination(
-      icon: Icon(Icons.leaderboard_outlined),
-      selectedIcon: Icon(Icons.leaderboard_rounded),
-      label: 'Ranking',
-    ),
-    NavigationDestination(
-      icon: Icon(Icons.emoji_events_outlined),
-      selectedIcon: Icon(Icons.emoji_events_rounded),
-      label: 'Torneos',
-    ),
-    NavigationDestination(
-      icon: Icon(Icons.settings_outlined),
-      selectedIcon: Icon(Icons.settings_rounded),
-      label: 'Ajustes',
-    ),
+  static const List<String> _titles = [
+    'General',
+    'Jugador',
+    'Ranking',
+    'Torneos',
+    'Ajustes',
   ];
+
+  void _onMenuItemSelected(int index) {
+    setState(() => _currentIndex = index);
+    Navigator.of(context).pop(); // cierra el menú al elegir
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         title: Text(
-          _destinations[_currentIndex].label,
+          _titles[_currentIndex],
           style: const TextStyle(fontWeight: FontWeight.bold),
         ),
         centerTitle: false,
         elevation: 0,
       ),
-      body: IndexedStack(index: _currentIndex, children: _screens),
-      bottomNavigationBar: NavigationBar(
+      drawer: AppDrawer(
         selectedIndex: _currentIndex,
-        onDestinationSelected: (index) => setState(() => _currentIndex = index),
-        destinations: _destinations,
-        labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
+        onItemSelected: _onMenuItemSelected,
       ),
+      body: IndexedStack(index: _currentIndex, children: _screens),
     );
   }
 }
