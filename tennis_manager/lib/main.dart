@@ -38,14 +38,6 @@ class MainNavigation extends StatefulWidget {
 class _MainNavigationState extends State<MainNavigation> {
   int _currentIndex = 0;
 
-  final List<Widget> _screens = const [
-    GeneralScreen(),
-    PlayerScreen(),
-    RankingScreen(),
-    TournamentsScreen(),
-    SettingsScreen(),
-  ];
-
   static const List<String> _titles = [
     'General',
     'Jugador',
@@ -54,13 +46,28 @@ class _MainNavigationState extends State<MainNavigation> {
     'Ajustes',
   ];
 
-  void _onMenuItemSelected(int index) {
+  void _onDrawerItemSelected(int index) {
     setState(() => _currentIndex = index);
-    Navigator.of(context).pop(); // cierra el menú al elegir
+    Navigator.of(context).pop();
+  }
+
+  void _navigateToTab(int index) {
+    setState(() => _currentIndex = index);
   }
 
   @override
   Widget build(BuildContext context) {
+    final screens = [
+      GeneralScreen(
+        onRankingTap: () => _navigateToTab(2),
+        onTournamentsTap: () => _navigateToTab(3),
+      ),
+      const PlayerScreen(),
+      const RankingScreen(),
+      const TournamentsScreen(),
+      const SettingsScreen(),
+    ];
+
     return Scaffold(
       appBar: AppBar(
         title: Text(
@@ -72,9 +79,9 @@ class _MainNavigationState extends State<MainNavigation> {
       ),
       drawer: AppDrawer(
         selectedIndex: _currentIndex,
-        onItemSelected: _onMenuItemSelected,
+        onItemSelected: _onDrawerItemSelected,
       ),
-      body: IndexedStack(index: _currentIndex, children: _screens),
+      body: IndexedStack(index: _currentIndex, children: screens),
     );
   }
 }
