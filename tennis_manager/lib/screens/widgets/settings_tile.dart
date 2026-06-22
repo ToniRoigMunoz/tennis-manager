@@ -82,7 +82,7 @@ class SettingsTile extends StatelessWidget {
                     ),
                   ),
                 ),
-              if (trailingWidget != null) trailingWidget!,
+              ?trailingWidget,
               if (trailingWidget == null && showChevron)
                 Icon(
                   Icons.chevron_right_rounded,
