@@ -3,7 +3,7 @@ import '../models/player_models.dart';
 import 'widgets/player_switcher.dart';
 import 'widgets/player_info_card.dart';
 import 'widgets/skills_card.dart';
-import 'widgets/attribute_block_card.dart';
+import 'widgets/attributes_panel.dart';
 
 class PlayerScreen extends StatelessWidget {
   const PlayerScreen({super.key});
@@ -55,7 +55,7 @@ class PlayerScreen extends StatelessWidget {
     PlayerSkill(
       name: 'Matagigantes',
       description:
-          'Recibe un impulso temporal contra rivales muy superiores en el ranking.',
+          'Impulso temporal contra rivales muy superiores en el ranking.',
       icon: Icons.bolt_rounded,
     ),
   ];
@@ -73,7 +73,7 @@ class PlayerScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ListView(
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
       children: [
         PlayerSwitcher(
           currentPlayerName: _player.name,
@@ -82,27 +82,13 @@ class PlayerScreen extends StatelessWidget {
         ),
         const SizedBox(height: 8),
         PlayerInfoCard(player: _player, overallRating: _overallRating),
-        const SizedBox(height: 20),
+        const SizedBox(height: 14),
         SkillsCard(skills: _skills),
-        AttributeBlockCard(
-          title: 'Físico',
-          icon: Icons.directions_run_rounded,
-          accentColor: Colors.blue,
-          attributes: _physicalAttributes,
-          playingStyle: _player.playingStyle,
-        ),
-        AttributeBlockCard(
-          title: 'Mental',
-          icon: Icons.psychology_outlined,
-          accentColor: Colors.deepPurple,
-          attributes: _mentalAttributes,
-          playingStyle: _player.playingStyle,
-        ),
-        AttributeBlockCard(
-          title: 'Técnico',
-          icon: Icons.sports_tennis_rounded,
-          accentColor: Colors.teal,
-          attributes: _technicalAttributes,
+        const SizedBox(height: 14),
+        AttributesPanel(
+          physical: _physicalAttributes,
+          mental: _mentalAttributes,
+          technical: _technicalAttributes,
           playingStyle: _player.playingStyle,
         ),
       ],

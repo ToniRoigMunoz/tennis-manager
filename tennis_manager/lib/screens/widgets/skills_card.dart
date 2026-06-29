@@ -11,8 +11,7 @@ class SkillsCard extends StatelessWidget {
 
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(14),
-      margin: const EdgeInsets.only(bottom: 14),
+      padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: colorScheme.surface,
         borderRadius: BorderRadius.circular(16),
@@ -27,15 +26,15 @@ class SkillsCard extends StatelessWidget {
             children: [
               Icon(
                 Icons.auto_awesome_rounded,
-                size: 16,
+                size: 14,
                 color: Colors.amber.shade700,
               ),
-              const SizedBox(width: 8),
+              const SizedBox(width: 6),
               Text(
                 'Habilidades',
                 style: TextStyle(
                   fontWeight: FontWeight.bold,
-                  fontSize: 14,
+                  fontSize: 13,
                   color: colorScheme.onSurface,
                 ),
               ),
@@ -43,63 +42,47 @@ class SkillsCard extends StatelessWidget {
               Text(
                 '(${skills.length}/3)',
                 style: TextStyle(
-                  fontSize: 11,
+                  fontSize: 10,
                   color: colorScheme.onSurfaceVariant,
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 6),
           if (skills.isEmpty)
             Text(
-              'Este jugador todavía no ha desbloqueado ninguna habilidad.',
+              'Todavía no ha desbloqueado ninguna habilidad.',
               style: TextStyle(
-                fontSize: 12,
+                fontSize: 11,
                 color: colorScheme.onSurfaceVariant,
               ),
             )
           else
             ...skills.map(
               (skill) => Padding(
-                padding: const EdgeInsets.only(bottom: 10),
+                padding: const EdgeInsets.symmetric(vertical: 3),
                 child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Container(
-                      width: 30,
-                      height: 30,
-                      decoration: BoxDecoration(
-                        color: Colors.amber.withValues(alpha: 0.15),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Icon(
-                        skill.icon,
-                        size: 15,
-                        color: Colors.amber.shade700,
+                    Icon(skill.icon, size: 13, color: Colors.amber.shade700),
+                    const SizedBox(width: 6),
+                    Text(
+                      skill.name,
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 11,
+                        color: colorScheme.onSurface,
                       ),
                     ),
-                    const SizedBox(width: 10),
+                    const SizedBox(width: 4),
                     Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            skill.name,
-                            style: TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 13,
-                              color: colorScheme.onSurface,
-                            ),
-                          ),
-                          const SizedBox(height: 2),
-                          Text(
-                            skill.description,
-                            style: TextStyle(
-                              fontSize: 11,
-                              color: colorScheme.onSurfaceVariant,
-                            ),
-                          ),
-                        ],
+                      child: Text(
+                        '· ${skill.description}',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 10,
+                          color: colorScheme.onSurfaceVariant,
+                        ),
                       ),
                     ),
                   ],
