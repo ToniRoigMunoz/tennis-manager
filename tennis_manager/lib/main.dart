@@ -5,6 +5,7 @@ import 'screens/ranking_screen.dart';
 import 'screens/tournaments_screen.dart';
 import 'screens/settings_screen.dart';
 import 'screens/widgets/app_drawer.dart';
+import 'screens/widgets/resource_bar.dart';
 
 void main() {
   runApp(const TennisManagerApp());
@@ -37,6 +38,8 @@ class MainNavigation extends StatefulWidget {
 
 class _MainNavigationState extends State<MainNavigation> {
   int _currentIndex = 0;
+  int _money = 1250;
+  int _rests = 3;
 
   static const List<String> _titles = [
     'General',
@@ -76,6 +79,7 @@ class _MainNavigationState extends State<MainNavigation> {
         ),
         centerTitle: false,
         elevation: 0,
+        actions: [ResourceBar(money: _money, rests: _rests)],
       ),
       drawer: AppDrawer(
         selectedIndex: _currentIndex,
