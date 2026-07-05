@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
-import '../../models/dashboard_models.dart';
+import '../../models/tournament_models.dart';
 
 class UpcomingTournamentsStrip extends StatelessWidget {
-  final List<UpcomingTournamentInfo> tournaments;
+  final List<TournamentInfo> tournaments;
   final VoidCallback onSeeAllTap;
 
   const UpcomingTournamentsStrip({

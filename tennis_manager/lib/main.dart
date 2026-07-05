@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'providers/user_resources_provider.dart';
 import 'screens/general_screen.dart';
 import 'screens/player_screen.dart';
 import 'screens/ranking_screen.dart';
@@ -8,7 +10,7 @@ import 'screens/widgets/app_drawer.dart';
 import 'screens/widgets/resource_bar.dart';
 
 void main() {
-  runApp(const TennisManagerApp());
+  runApp(const ProviderScope(child: TennisManagerApp()));
 }
 
 class TennisManagerApp extends StatelessWidget {
@@ -29,17 +31,15 @@ class TennisManagerApp extends StatelessWidget {
   }
 }
 
-class MainNavigation extends StatefulWidget {
+class MainNavigation extends ConsumerStatefulWidget {
   const MainNavigation({super.key});
 
   @override
-  State<MainNavigation> createState() => _MainNavigationState();
+  ConsumerState<MainNavigation> createState() => _MainNavigationState();
 }
 
-class _MainNavigationState extends State<MainNavigation> {
+class _MainNavigationState extends ConsumerState<MainNavigation> {
   int _currentIndex = 0;
-  int _money = 1250;
-  int _rests = 3;
 
   static const List<String> _titles = [
     'General',
@@ -54,12 +54,12 @@ class _MainNavigationState extends State<MainNavigation> {
     Navigator.of(context).pop();
   }
 
-  void _navigateToTab(int index) {
-    setState(() => _currentIndex = index);
-  }
+  void _navigateToTab(int index) => setState(() => _currentIndex = index);
 
   @override
   Widget build(BuildContext context) {
+    final resources = ref.watch(userResourcesProvider);
+
     final screens = [
       GeneralScreen(
         onRankingTap: () => _navigateToTab(2),
@@ -79,7 +79,7 @@ class _MainNavigationState extends State<MainNavigation> {
         ),
         centerTitle: false,
         elevation: 0,
-        actions: [ResourceBar(money: _money, rests: _rests)],
+        actions: [ResourceBar(money: resources.money, rests: resources.rests)],
       ),
       drawer: AppDrawer(
         selectedIndex: _currentIndex,

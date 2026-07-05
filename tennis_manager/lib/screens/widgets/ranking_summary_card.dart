@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
-import '../../models/dashboard_models.dart';
+import '../../models/league_models.dart';
 
 class RankingSummaryCard extends StatelessWidget {
-  final List<RankingEntry> entries;
+  final List<LeagueStanding> entries;
   final VoidCallback onTap;
 
   const RankingSummaryCard({
