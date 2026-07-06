@@ -1,42 +1,72 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/dashboard_models.dart';
+import '../services/api_service.dart';
+import '../config.dart';
 
 class DashboardState {
+  final int money;
+  final int rests;
   final NextMatchInfo? nextMatch;
   final LastMatchInfo? lastMatch;
 
-  const DashboardState({this.nextMatch, this.lastMatch});
-}
+  const DashboardState({
+    required this.money,
+    required this.rests,
+    this.nextMatch,
+    this.lastMatch,
+  });
 
-class DashboardNotifier extends StateNotifier<DashboardState> {
-  DashboardNotifier() : super(_initial());
-
-  static DashboardState _initial() => DashboardState(
-    nextMatch: NextMatchInfo(
-      opponentName: 'Carlos Ferrer',
-      tournamentName: 'Masters de Valencia',
-      round: 'Octavos de final',
-      dateTime: DateTime(2026, 6, 22, 18, 30),
-      surface: 'Tierra batida',
-    ),
-    lastMatch: const LastMatchInfo(
-      opponentName: 'Iker Bilbao',
-      won: true,
-      setsScore: '6-4, 7-5',
-      aces: 8,
-      winners: 24,
-      unforcedErrors: 14,
-    ),
+  DashboardState copyWith({
+    int? money,
+    int? rests,
+    NextMatchInfo? nextMatch,
+    LastMatchInfo? lastMatch,
+  }) => DashboardState(
+    money: money ?? this.money,
+    rests: rests ?? this.rests,
+    nextMatch: nextMatch ?? this.nextMatch,
+    lastMatch: lastMatch ?? this.lastMatch,
   );
 
-  void setNextMatch(NextMatchInfo match) =>
-      state = DashboardState(nextMatch: match, lastMatch: state.lastMatch);
+  factory DashboardState.fromJson(Map<String, dynamic> json) => DashboardState(
+    money: json['money'] as int,
+    rests: json['rests'] as int,
+    nextMatch: json['nextMatch'] != null
+        ? NextMatchInfo.fromJson(json['nextMatch'] as Map<String, dynamic>)
+        : null,
+    lastMatch: json['lastMatch'] != null
+        ? LastMatchInfo.fromJson(json['lastMatch'] as Map<String, dynamic>)
+        : null,
+  );
+}
 
-  void setLastMatch(LastMatchInfo match) =>
-      state = DashboardState(nextMatch: state.nextMatch, lastMatch: match);
+class DashboardNotifier extends AsyncNotifier<DashboardState> {
+  @override
+  Future<DashboardState> build() async {
+    final json = await ApiService.fetchDashboard(Config.demoUserId);
+    return DashboardState.fromJson(json);
+  }
+
+  // Mutaciones locales — se sincronizan con el servidor cuando hay acción de juego
+  void spendMoney(int amount) => state.whenData((d) {
+    if (d.money >= amount) {
+      state = AsyncData(d.copyWith(money: d.money - amount));
+    }
+  });
+
+  void earnMoney(int amount) => state.whenData(
+    (d) => state = AsyncData(d.copyWith(money: d.money + amount)),
+  );
+
+  void spendRest() => state.whenData((d) {
+    if (d.rests > 0) state = AsyncData(d.copyWith(rests: d.rests - 1));
+  });
+
+  void gainRest() =>
+      state.whenData((d) => state = AsyncData(d.copyWith(rests: d.rests + 1)));
 }
 
 final dashboardProvider =
-    StateNotifierProvider<DashboardNotifier, DashboardState>(
-      (ref) => DashboardNotifier(),
+    AsyncNotifierProvider<DashboardNotifier, DashboardState>(
+      DashboardNotifier.new,
     );

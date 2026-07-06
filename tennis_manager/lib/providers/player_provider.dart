@@ -1,6 +1,8 @@
-import 'package:flutter/material.dart';
+//import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/player_models.dart';
+import '../services/api_service.dart';
+import '../config.dart';
 
 class PlayerState {
   final PlayerProfile profile;
@@ -23,82 +25,53 @@ class PlayerState {
     return (sum / all.length).round();
   }
 
-  PlayerState withEnergy(int energy) => PlayerState(
+  static List<PlayerAttribute> _parseAttrs(List<dynamic> list) => list
+      .map(
+        (e) => PlayerAttribute(
+          name: e['name'] as String,
+          value: e['value'] as int,
+        ),
+      )
+      .toList();
+
+  static List<PlayerSkill> _parseSkills(List<dynamic> list) => list
+      .map(
+        (e) => PlayerSkill(
+          name: e['name'] as String,
+          description: e['description'] as String,
+          iconName: e['iconName'] as String,
+        ),
+      )
+      .toList();
+
+  factory PlayerState.fromJson(Map<String, dynamic> json) => PlayerState(
     profile: PlayerProfile(
-      name: profile.name,
-      nationality: profile.nationality,
-      nationalityFlag: profile.nationalityFlag,
-      age: profile.age,
-      heightCm: profile.heightCm,
-      weightKg: profile.weightKg,
-      dominantHand: profile.dominantHand,
-      playingStyle: profile.playingStyle,
-      currentEnergy: energy.clamp(0, profile.maxEnergy),
-      maxEnergy: profile.maxEnergy,
+      name: json['name'] as String,
+      nationality: json['nationality'] as String,
+      nationalityFlag: json['nationalityFlag'] as String,
+      age: json['age'] as int,
+      heightCm: json['heightCm'] as int,
+      weightKg: json['weightKg'] as int,
+      dominantHand: json['dominantHand'] as String,
+      playingStyle: json['playingStyle'] as String,
+      currentEnergy: json['currentEnergy'] as int,
+      maxEnergy: json['maxEnergy'] as int,
     ),
-    physical: physical,
-    mental: mental,
-    technical: technical,
-    skills: skills,
+    physical: _parseAttrs(json['physical'] as List),
+    mental: _parseAttrs(json['mental'] as List),
+    technical: _parseAttrs(json['technical'] as List),
+    skills: _parseSkills(json['skills'] as List),
   );
 }
 
-class PlayerNotifier extends StateNotifier<PlayerState> {
-  PlayerNotifier() : super(_initial());
-
-  static PlayerState _initial() => const PlayerState(
-    profile: PlayerProfile(
-      name: 'Toni Roig',
-      nationality: 'España',
-      nationalityFlag: '🇪🇸',
-      age: 22,
-      heightCm: 185,
-      weightKg: 78,
-      dominantHand: 'Diestro',
-      playingStyle: 'Agresivo de Fondo',
-      currentEnergy: 64,
-      maxEnergy: 100,
-    ),
-    physical: [
-      PlayerAttribute(name: 'Resistencia', value: 68),
-      PlayerAttribute(name: 'Velocidad', value: 74),
-      PlayerAttribute(name: 'Fuerza', value: 81),
-      PlayerAttribute(name: 'Reflejos', value: 65),
-      PlayerAttribute(name: 'Flexibilidad', value: 58),
-    ],
-    mental: [
-      PlayerAttribute(name: 'Sangre Fría', value: 62),
-      PlayerAttribute(name: 'Concentración', value: 70),
-      PlayerAttribute(name: 'Visión de Juego', value: 77),
-      PlayerAttribute(name: 'Anticipación', value: 66),
-      PlayerAttribute(name: 'Creatividad', value: 59),
-    ],
-    technical: [
-      PlayerAttribute(name: 'Saque', value: 71),
-      PlayerAttribute(name: 'Derecha', value: 83),
-      PlayerAttribute(name: 'Revés', value: 60),
-      PlayerAttribute(name: 'Juego en la Red', value: 55),
-      PlayerAttribute(name: 'Efecto', value: 75),
-    ],
-    skills: [
-      PlayerSkill(
-        name: 'Hielo en las Venas',
-        description:
-            'Mejora su Sangre Fría y Saque en bolas de break en contra.',
-        icon: Icons.ac_unit_rounded,
-      ),
-      PlayerSkill(
-        name: 'Matagigantes',
-        description:
-            'Impulso temporal contra rivales muy superiores en el ranking.',
-        icon: Icons.bolt_rounded,
-      ),
-    ],
-  );
-
-  void updateEnergy(int energy) => state = state.withEnergy(energy);
+class PlayerNotifier extends AsyncNotifier<PlayerState> {
+  @override
+  Future<PlayerState> build() async {
+    final json = await ApiService.fetchPlayer(Config.demoUserId);
+    return PlayerState.fromJson(json);
+  }
 }
 
-final playerProvider = StateNotifierProvider<PlayerNotifier, PlayerState>(
-  (ref) => PlayerNotifier(),
+final playerProvider = AsyncNotifierProvider<PlayerNotifier, PlayerState>(
+  PlayerNotifier.new,
 );

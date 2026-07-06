@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+//import 'package:flutter/material.dart';
 
 class PlayerProfile {
   final String name;
@@ -36,12 +36,12 @@ class PlayerAttribute {
 class PlayerSkill {
   final String name;
   final String description;
-  final IconData icon;
+  final String iconName; // antes: IconData icon
 
   const PlayerSkill({
     required this.name,
     required this.description,
-    required this.icon,
+    required this.iconName,
   });
 }
 

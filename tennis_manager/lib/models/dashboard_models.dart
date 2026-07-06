@@ -12,6 +12,14 @@ class NextMatchInfo {
     required this.dateTime,
     required this.surface,
   });
+
+  factory NextMatchInfo.fromJson(Map<String, dynamic> json) => NextMatchInfo(
+    opponentName: json['opponentName'] as String,
+    tournamentName: json['tournamentName'] as String,
+    round: json['round'] as String,
+    dateTime: DateTime.parse(json['dateTime'] as String),
+    surface: json['surface'] as String,
+  );
 }
 
 class LastMatchInfo {
@@ -30,4 +38,13 @@ class LastMatchInfo {
     required this.winners,
     required this.unforcedErrors,
   });
+
+  factory LastMatchInfo.fromJson(Map<String, dynamic> json) => LastMatchInfo(
+    opponentName: json['opponentName'] as String,
+    won: json['won'] as bool,
+    setsScore: json['setsScore'] as String,
+    aces: json['aces'] as int,
+    winners: json['winners'] as int,
+    unforcedErrors: json['unforcedErrors'] as int,
+  );
 }

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../models/player_models.dart';
+import '../../utils/icon_mapper.dart';
 
 class SkillsCard extends StatelessWidget {
   final List<PlayerSkill> skills;
@@ -63,7 +64,11 @@ class SkillsCard extends StatelessWidget {
                 padding: const EdgeInsets.symmetric(vertical: 3),
                 child: Row(
                   children: [
-                    Icon(skill.icon, size: 13, color: Colors.amber.shade700),
+                    Icon(
+                      IconMapper.fromName(skill.iconName),
+                      size: 13,
+                      color: Colors.amber.shade700,
+                    ),
                     const SizedBox(width: 6),
                     Text(
                       skill.name,

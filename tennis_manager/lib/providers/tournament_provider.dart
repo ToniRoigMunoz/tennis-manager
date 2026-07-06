@@ -1,5 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/tournament_models.dart';
+import '../services/api_service.dart';
+import '../config.dart';
 
 class TournamentState {
   final List<TournamentInfo> tournaments;
@@ -15,88 +17,46 @@ class TournamentState {
   List<TournamentInfo> get upcoming =>
       tournaments.where((t) => t.status == TournamentStatus.upcoming).toList();
 
-  TournamentInfo? get current => tournaments
-      .where((t) => t.status == TournamentStatus.current)
-      .firstOrNull;
+  factory TournamentState.fromJson(Map<String, dynamic> json) {
+    final list = (json['tournaments'] as List).map((e) {
+      final map = e as Map<String, dynamic>;
+      return TournamentInfo(
+        name: map['name'] as String,
+        startDay: map['startDay'] as int,
+        durationDays: map['durationDays'] as int,
+        surface: map['surface'] as String,
+        dateLabel: map['dateLabel'] as String,
+        resultLabel: map['resultLabel'] as String?,
+        category: switch (map['category'] as String) {
+          'grandSlam' => TournamentCategory.grandSlam,
+          'finals' => TournamentCategory.finals,
+          _ => TournamentCategory.regular,
+        },
+        status: switch (map['status'] as String) {
+          'past' => TournamentStatus.past,
+          'current' => TournamentStatus.current,
+          _ => TournamentStatus.upcoming,
+        },
+      );
+    }).toList();
+
+    return TournamentState(
+      tournaments: list,
+      currentDay: json['currentDay'] as int,
+      totalDays: json['totalDays'] as int,
+    );
+  }
 }
 
-class TournamentNotifier extends StateNotifier<TournamentState> {
-  TournamentNotifier() : super(_initial());
-
-  static TournamentState _initial() => const TournamentState(
-    currentDay: 9,
-    totalDays: 28,
-    tournaments: [
-      TournamentInfo(
-        name: 'Open de Castilla',
-        startDay: 2,
-        durationDays: 1,
-        surface: 'Pista dura',
-        category: TournamentCategory.regular,
-        status: TournamentStatus.past,
-        dateLabel: '15 jun',
-        resultLabel: 'Eliminado en 2ª ronda',
-      ),
-      TournamentInfo(
-        name: 'Grand Slam de Roland Sur',
-        startDay: 5,
-        durationDays: 2,
-        surface: 'Tierra batida',
-        category: TournamentCategory.grandSlam,
-        status: TournamentStatus.past,
-        dateLabel: '18-19 jun',
-        resultLabel: 'Cuartos de final',
-      ),
-      TournamentInfo(
-        name: 'Masters de Valencia',
-        startDay: 9,
-        durationDays: 1,
-        surface: 'Tierra batida',
-        category: TournamentCategory.regular,
-        status: TournamentStatus.current,
-        dateLabel: '22 jun',
-      ),
-      TournamentInfo(
-        name: 'Open de Madrid',
-        startDay: 16,
-        durationDays: 1,
-        surface: 'Pista dura',
-        category: TournamentCategory.regular,
-        status: TournamentStatus.upcoming,
-        dateLabel: '29 jun',
-      ),
-      TournamentInfo(
-        name: 'Copa Mediterráneo',
-        startDay: 23,
-        durationDays: 1,
-        surface: 'Tierra batida',
-        category: TournamentCategory.regular,
-        status: TournamentStatus.upcoming,
-        dateLabel: '6 jul',
-      ),
-      TournamentInfo(
-        name: 'Grand Slam Costa Azul',
-        startDay: 25,
-        durationDays: 2,
-        surface: 'Hierba',
-        category: TournamentCategory.grandSlam,
-        status: TournamentStatus.upcoming,
-        dateLabel: '8-9 jul',
-      ),
-      TournamentInfo(
-        name: 'Finales ATP',
-        startDay: 27,
-        durationDays: 2,
-        surface: 'Pista dura',
-        category: TournamentCategory.finals,
-        status: TournamentStatus.upcoming,
-        dateLabel: '10-11 jul',
-      ),
-    ],
-  );
+class TournamentNotifier extends AsyncNotifier<TournamentState> {
+  @override
+  Future<TournamentState> build() async {
+    final json = await ApiService.fetchTournaments(Config.demoSeasonId);
+    return TournamentState.fromJson(json);
+  }
 }
 
 final tournamentProvider =
-    StateNotifierProvider<TournamentNotifier, TournamentState>(
-      (ref) => TournamentNotifier(),
+    AsyncNotifierProvider<TournamentNotifier, TournamentState>(
+      TournamentNotifier.new,
     );
