@@ -4,7 +4,12 @@ import '../../models/dashboard_models.dart';
 
 class NextMatchCard extends StatelessWidget {
   final NextMatchInfo match;
-  const NextMatchCard({super.key, required this.match});
+  final String playerName;
+  const NextMatchCard({
+    super.key,
+    required this.match,
+    required this.playerName,
+  });
 
   String _formatDate(DateTime dt) {
     const days = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
@@ -103,7 +108,10 @@ class NextMatchCard extends StatelessWidget {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                   children: [
-                    const _PlayerBadge(initials: 'TÚ', name: 'Tú'),
+                    _PlayerBadge(
+                      initials: _initialsOf(playerName),
+                      name: playerName,
+                    ),
                     Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [

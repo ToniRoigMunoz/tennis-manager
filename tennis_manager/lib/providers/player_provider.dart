@@ -1,6 +1,6 @@
-//import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/player_models.dart';
+import '../models/dashboard_models.dart';
 import '../services/api_service.dart';
 import '../config.dart';
 
@@ -10,6 +10,8 @@ class PlayerState {
   final List<PlayerAttribute> mental;
   final List<PlayerAttribute> technical;
   final List<PlayerSkill> skills;
+  final NextMatchInfo? nextMatch;
+  final LastMatchInfo? lastMatch;
 
   const PlayerState({
     required this.profile,
@@ -17,6 +19,8 @@ class PlayerState {
     required this.mental,
     required this.technical,
     required this.skills,
+    this.nextMatch,
+    this.lastMatch,
   });
 
   int get overallRating {
@@ -61,6 +65,12 @@ class PlayerState {
     mental: _parseAttrs(json['mental'] as List),
     technical: _parseAttrs(json['technical'] as List),
     skills: _parseSkills(json['skills'] as List),
+    nextMatch: json['nextMatch'] != null
+        ? NextMatchInfo.fromJson(json['nextMatch'] as Map<String, dynamic>)
+        : null,
+    lastMatch: json['lastMatch'] != null
+        ? LastMatchInfo.fromJson(json['lastMatch'] as Map<String, dynamic>)
+        : null,
   );
 }
 

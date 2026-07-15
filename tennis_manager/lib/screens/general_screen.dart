@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../providers/dashboard_provider.dart';
+import '../providers/player_provider.dart';
 import '../providers/league_provider.dart';
 import '../providers/tournament_provider.dart';
 import 'widgets/next_match_card.dart';
@@ -21,29 +21,33 @@ class GeneralScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final dashAsync = ref.watch(dashboardProvider);
+    final playerAsync = ref.watch(playerProvider);
     final leagueAsync = ref.watch(leagueProvider);
     final tourAsync = ref.watch(tournamentProvider);
 
     final isLoading = [
-      dashAsync,
+      playerAsync,
       leagueAsync,
       tourAsync,
     ].any((a) => a.isLoading);
-    final hasError = [dashAsync, leagueAsync, tourAsync].any((a) => a.hasError);
+    final hasError = [
+      playerAsync,
+      leagueAsync,
+      tourAsync,
+    ].any((a) => a.hasError);
 
     if (isLoading) return const Center(child: CircularProgressIndicator());
     if (hasError) {
       return ErrorView(
         onRetry: () {
-          ref.invalidate(dashboardProvider);
+          ref.invalidate(playerProvider);
           ref.invalidate(leagueProvider);
           ref.invalidate(tournamentProvider);
         },
       );
     }
 
-    final dash = dashAsync.value!;
+    final player = playerAsync.value!;
     final league = leagueAsync.value!;
     final tournaments = tourAsync.value!;
 
@@ -52,11 +56,14 @@ class GeneralScreen extends ConsumerWidget {
         final topHeight = constraints.maxHeight * 0.33;
         return Column(
           children: [
-            if (dash.nextMatch != null)
+            if (player.nextMatch != null)
               SizedBox(
                 height: topHeight,
                 width: double.infinity,
-                child: NextMatchCard(match: dash.nextMatch!),
+                child: NextMatchCard(
+                  match: player.nextMatch!,
+                  playerName: player.profile.name, // nombre real del jugador
+                ),
               ),
             const SizedBox(height: 16),
             UpcomingTournamentsStrip(
@@ -77,8 +84,8 @@ class GeneralScreen extends ConsumerWidget {
                       ),
                     ),
                     const SizedBox(width: 12),
-                    if (dash.lastMatch != null)
-                      Expanded(child: LastMatchCard(match: dash.lastMatch!)),
+                    if (player.lastMatch != null)
+                      Expanded(child: LastMatchCard(match: player.lastMatch!)),
                   ],
                 ),
               ),

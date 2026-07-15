@@ -12,6 +12,9 @@ class ApiService {
     return jsonDecode(response.body) as Map<String, dynamic>;
   }
 
+  static Future<Map<String, dynamic>> fetchUserData(String userId) =>
+      _get('GetUserData?userId=$userId');
+
   static Future<Map<String, dynamic>> fetchPlayer(String userId) =>
       _get('GetPlayerData?userId=$userId');
 
@@ -20,7 +23,4 @@ class ApiService {
 
   static Future<Map<String, dynamic>> fetchTournaments(String seasonId) =>
       _get('GetTournamentData?seasonId=$seasonId');
-
-  static Future<Map<String, dynamic>> fetchDashboard(String userId) =>
-      _get('GetDashboardData?userId=$userId');
 }

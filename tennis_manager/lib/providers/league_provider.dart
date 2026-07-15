@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/league_models.dart';
 import '../services/api_service.dart';
 import '../config.dart';
+import 'user_resources_provider.dart';
 
 class LeagueState {
   final LeagueInfo info;
@@ -19,14 +20,13 @@ class LeagueState {
   }
 
   factory LeagueState.fromJson(Map<String, dynamic> json) {
-    final standingsList = (json['standings'] as List).map((e) {
+    final list = (json['standings'] as List).map((e) {
       final map = e as Map<String, dynamic>;
-      final userId = map['userId'] as String?;
       return LeagueStanding(
         position: map['position'] as int,
         name: map['name'] as String,
         points: map['points'] as int,
-        isCurrentUser: userId == Config.demoUserId,
+        isCurrentUser: (map['userId'] as String?) == Config.demoUserId,
         recentForm: (map['recentForm'] as List).cast<bool>(),
       );
     }).toList();
@@ -38,7 +38,7 @@ class LeagueState {
         qualificationSlots: json['qualificationSlots'] as int,
         seasonEndsLabel: json['seasonEndsLabel'] as String,
       ),
-      standings: standingsList,
+      standings: list,
     );
   }
 }
@@ -46,7 +46,9 @@ class LeagueState {
 class LeagueNotifier extends AsyncNotifier<LeagueState> {
   @override
   Future<LeagueState> build() async {
-    final json = await ApiService.fetchLeague(Config.demoLeagueId);
+    // Lee el leagueId de userDataProvider — si cambia, esta liga se recarga sola
+    final userData = await ref.watch(userDataProvider.future);
+    final json = await ApiService.fetchLeague(userData.leagueId);
     return LeagueState.fromJson(json);
   }
 }

@@ -1,7 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/tournament_models.dart';
 import '../services/api_service.dart';
-import '../config.dart';
+import 'user_resources_provider.dart';
 
 class TournamentState {
   final List<TournamentInfo> tournaments;
@@ -51,7 +51,8 @@ class TournamentState {
 class TournamentNotifier extends AsyncNotifier<TournamentState> {
   @override
   Future<TournamentState> build() async {
-    final json = await ApiService.fetchTournaments(Config.demoSeasonId);
+    final userData = await ref.watch(userDataProvider.future);
+    final json = await ApiService.fetchTournaments(userData.seasonId);
     return TournamentState.fromJson(json);
   }
 }
