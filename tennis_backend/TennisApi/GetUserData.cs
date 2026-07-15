@@ -6,11 +6,11 @@ using System.Text.Json;
 
 namespace TennisApi
 {
-    public class GetDashboardData(CosmosClient cosmos)
+    public class GetUserData(CosmosClient cosmos)
     {
         private static readonly JsonSerializerOptions Opts = new() { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
 
-        [Function("GetDashboardData")]
+        [Function("GetUserData")]
         public async Task<HttpResponseData> Run(
             [HttpTrigger(AuthorizationLevel.Anonymous, "get")] HttpRequestData req)
         {

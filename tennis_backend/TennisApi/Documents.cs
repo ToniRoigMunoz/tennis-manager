@@ -2,38 +2,17 @@ using System.Text.Json.Serialization;
 
 namespace TennisApi
 {
-    // ── USERS ────────────────────────────────────────────────────────────────
+    // ── USERS — solo datos de cuenta ─────────────────────────────────────────
     public class UserDocument
     {
-        [JsonPropertyName("id")]          public string Id { get; set; } = "";
-        [JsonPropertyName("money")]       public int Money { get; set; }
-        [JsonPropertyName("rests")]       public int Rests { get; set; }
-        [JsonPropertyName("leagueId")]    public string LeagueId { get; set; } = "";
-        [JsonPropertyName("seasonId")]    public string SeasonId { get; set; } = "";
-        [JsonPropertyName("nextMatch")]   public MatchDoc? NextMatch { get; set; }
-        [JsonPropertyName("lastMatch")]   public MatchResultDoc? LastMatch { get; set; }
+        [JsonPropertyName("id")]       public string Id { get; set; } = "";
+        [JsonPropertyName("money")]    public int Money { get; set; }
+        [JsonPropertyName("rests")]    public int Rests { get; set; }
+        [JsonPropertyName("leagueId")] public string LeagueId { get; set; } = "";
+        [JsonPropertyName("seasonId")] public string SeasonId { get; set; } = "";
     }
 
-    public class MatchDoc
-    {
-        [JsonPropertyName("opponentName")]    public string OpponentName { get; set; } = "";
-        [JsonPropertyName("tournamentName")]  public string TournamentName { get; set; } = "";
-        [JsonPropertyName("round")]           public string Round { get; set; } = "";
-        [JsonPropertyName("dateTime")]        public string DateTime { get; set; } = "";
-        [JsonPropertyName("surface")]         public string Surface { get; set; } = "";
-    }
-
-    public class MatchResultDoc
-    {
-        [JsonPropertyName("opponentName")]    public string OpponentName { get; set; } = "";
-        [JsonPropertyName("won")]             public bool Won { get; set; }
-        [JsonPropertyName("setsScore")]       public string SetsScore { get; set; } = "";
-        [JsonPropertyName("aces")]            public int Aces { get; set; }
-        [JsonPropertyName("winners")]         public int Winners { get; set; }
-        [JsonPropertyName("unforcedErrors")]  public int UnforcedErrors { get; set; }
-    }
-
-    // ── PLAYERS ──────────────────────────────────────────────────────────────
+    // ── PLAYERS — perfil completo del jugador, incluyendo partidos ────────────
     public class PlayerDocument
     {
         [JsonPropertyName("id")]              public string Id { get; set; } = "";
@@ -52,6 +31,28 @@ namespace TennisApi
         [JsonPropertyName("mental")]          public List<AttributeDoc> Mental { get; set; } = [];
         [JsonPropertyName("technical")]       public List<AttributeDoc> Technical { get; set; } = [];
         [JsonPropertyName("skills")]          public List<SkillDoc> Skills { get; set; } = [];
+        // Los partidos viven aquí: pertenecen al jugador, no a la cuenta
+        [JsonPropertyName("nextMatch")]       public MatchDoc? NextMatch { get; set; }
+        [JsonPropertyName("lastMatch")]       public MatchResultDoc? LastMatch { get; set; }
+    }
+
+    public class MatchDoc
+    {
+        [JsonPropertyName("opponentName")]   public string OpponentName { get; set; } = "";
+        [JsonPropertyName("tournamentName")] public string TournamentName { get; set; } = "";
+        [JsonPropertyName("round")]          public string Round { get; set; } = "";
+        [JsonPropertyName("dateTime")]       public string DateTime { get; set; } = "";
+        [JsonPropertyName("surface")]        public string Surface { get; set; } = "";
+    }
+
+    public class MatchResultDoc
+    {
+        [JsonPropertyName("opponentName")]   public string OpponentName { get; set; } = "";
+        [JsonPropertyName("won")]            public bool Won { get; set; }
+        [JsonPropertyName("setsScore")]      public string SetsScore { get; set; } = "";
+        [JsonPropertyName("aces")]           public int Aces { get; set; }
+        [JsonPropertyName("winners")]        public int Winners { get; set; }
+        [JsonPropertyName("unforcedErrors")] public int UnforcedErrors { get; set; }
     }
 
     public class AttributeDoc
@@ -67,7 +68,7 @@ namespace TennisApi
         [JsonPropertyName("iconName")]    public string IconName { get; set; } = "";
     }
 
-    // ── LEAGUES ──────────────────────────────────────────────────────────────
+    // ── LEAGUES ───────────────────────────────────────────────────────────────
     public class LeagueDocument
     {
         [JsonPropertyName("id")]                 public string Id { get; set; } = "";
@@ -84,11 +85,12 @@ namespace TennisApi
         [JsonPropertyName("position")]   public int Position { get; set; }
         [JsonPropertyName("name")]       public string Name { get; set; } = "";
         [JsonPropertyName("points")]     public int Points { get; set; }
+        // userId es la referencia real; name es un caché que GetLeagueData sobreescribe en lectura
         [JsonPropertyName("userId")]     public string? UserId { get; set; }
         [JsonPropertyName("recentForm")] public List<bool> RecentForm { get; set; } = [];
     }
 
-    // ── TOURNAMENTS ──────────────────────────────────────────────────────────
+    // ── TOURNAMENTS ───────────────────────────────────────────────────────────
     public class TournamentDocument
     {
         [JsonPropertyName("id")]          public string Id { get; set; } = "";
@@ -100,13 +102,13 @@ namespace TennisApi
 
     public class TournamentEntry
     {
-        [JsonPropertyName("name")]          public string Name { get; set; } = "";
-        [JsonPropertyName("startDay")]      public int StartDay { get; set; }
-        [JsonPropertyName("durationDays")]  public int DurationDays { get; set; }
-        [JsonPropertyName("surface")]       public string Surface { get; set; } = "";
-        [JsonPropertyName("category")]      public string Category { get; set; } = "";
-        [JsonPropertyName("status")]        public string Status { get; set; } = "";
-        [JsonPropertyName("dateLabel")]     public string DateLabel { get; set; } = "";
-        [JsonPropertyName("resultLabel")]   public string? ResultLabel { get; set; }
+        [JsonPropertyName("name")]         public string Name { get; set; } = "";
+        [JsonPropertyName("startDay")]     public int StartDay { get; set; }
+        [JsonPropertyName("durationDays")] public int DurationDays { get; set; }
+        [JsonPropertyName("surface")]      public string Surface { get; set; } = "";
+        [JsonPropertyName("category")]     public string Category { get; set; } = "";
+        [JsonPropertyName("status")]       public string Status { get; set; } = "";
+        [JsonPropertyName("dateLabel")]    public string DateLabel { get; set; } = "";
+        [JsonPropertyName("resultLabel")]  public string? ResultLabel { get; set; }
     }
 }
