@@ -5,10 +5,12 @@ import '../../models/dashboard_models.dart';
 class NextMatchCard extends StatelessWidget {
   final NextMatchInfo match;
   final String playerName;
+  final VoidCallback? onPlayTap;
   const NextMatchCard({
     super.key,
     required this.match,
     required this.playerName,
+    this.onPlayTap,
   });
 
   String _formatDate(DateTime dt) {
@@ -124,21 +126,36 @@ class NextMatchCard extends StatelessWidget {
                           ),
                         ),
                         const SizedBox(height: 4),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 8,
-                            vertical: 2,
-                          ),
-                          decoration: BoxDecoration(
-                            color: Colors.white,
+                        Material(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(8),
+                          child: InkWell(
+                            onTap: onPlayTap,
                             borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: Text(
-                            'PRÓXIMO',
-                            style: TextStyle(
-                              color: colorScheme.primary,
-                              fontSize: 9,
-                              fontWeight: FontWeight.bold,
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 5,
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(
+                                    Icons.play_arrow_rounded,
+                                    size: 14,
+                                    color: colorScheme.primary,
+                                  ),
+                                  const SizedBox(width: 3),
+                                  Text(
+                                    'JUGAR',
+                                    style: TextStyle(
+                                      color: colorScheme.primary,
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ],
+                              ),
                             ),
                           ),
                         ),

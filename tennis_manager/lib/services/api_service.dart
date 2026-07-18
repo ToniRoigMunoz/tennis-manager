@@ -23,4 +23,16 @@ class ApiService {
 
   static Future<Map<String, dynamic>> fetchTournaments(String seasonId) =>
       _get('GetTournamentData?seasonId=$seasonId');
+
+  static Future<Map<String, dynamic>> simulateMatch({
+    required String userId,
+    required String opponentName,
+    int opponentOverall = 72,
+    int bestOf = 3,
+  }) => _get(
+    'SimulateMatch?userId=$userId'
+    '&opponentName=${Uri.encodeComponent(opponentName)}'
+    '&opponentOverall=$opponentOverall'
+    '&bestOf=$bestOf',
+  );
 }

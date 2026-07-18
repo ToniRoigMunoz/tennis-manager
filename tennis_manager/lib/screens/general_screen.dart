@@ -8,6 +8,7 @@ import 'widgets/ranking_summary_card.dart';
 import 'widgets/last_match_card.dart';
 import 'widgets/upcoming_tournaments_strip.dart';
 import 'widgets/error_view.dart';
+import 'match_screen.dart';
 
 class GeneralScreen extends ConsumerWidget {
   final VoidCallback onRankingTap;
@@ -62,7 +63,16 @@ class GeneralScreen extends ConsumerWidget {
                 width: double.infinity,
                 child: NextMatchCard(
                   match: player.nextMatch!,
-                  playerName: player.profile.name, // nombre real del jugador
+                  playerName: player.profile.name,
+                  onPlayTap: () => Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => MatchScreen(
+                        opponentName: player.nextMatch!.opponentName,
+                        tournamentName: player.nextMatch!.tournamentName,
+                        round: player.nextMatch!.round,
+                      ),
+                    ),
+                  ),
                 ),
               ),
             const SizedBox(height: 16),
