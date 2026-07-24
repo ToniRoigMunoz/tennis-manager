@@ -42,7 +42,8 @@ class LiveScoreboard extends StatelessWidget {
             context,
             name: match.player1Name,
             isServing: p?.server == 1,
-            sets: completed.map((s) => s[0]).toList(),
+            sets: completed,
+            isPlayer1: true,
             currentGames: showCurrentSet ? p.p1Games : null,
             gameScore: showCurrentSet ? p.p1GameScore : null,
           ),
@@ -57,7 +58,8 @@ class LiveScoreboard extends StatelessWidget {
             context,
             name: match.player2Name,
             isServing: p?.server == 2,
-            sets: completed.map((s) => s[1]).toList(),
+            sets: completed,
+            isPlayer1: false,
             currentGames: showCurrentSet ? p.p2Games : null,
             gameScore: showCurrentSet ? p.p2GameScore : null,
           ),
@@ -94,7 +96,8 @@ class LiveScoreboard extends StatelessWidget {
     BuildContext context, {
     required String name,
     required bool isServing,
-    required List<int> sets,
+    required List<List<int>> sets,
+    required bool isPlayer1,
     required int? currentGames,
     required String? gameScore,
   }) {
@@ -122,20 +125,25 @@ class LiveScoreboard extends StatelessWidget {
             ),
           ),
         ),
-        // Sets cerrados
-        ...sets.map(
-          (g) => Padding(
+        // Sets cerrados: en blanco y negrita el del ganador de cada set
+        ...sets.map((s) {
+          final mine = isPlayer1 ? s[0] : s[1];
+          final theirs = isPlayer1 ? s[1] : s[0];
+          final wonSet = mine > theirs;
+          return Padding(
             padding: const EdgeInsets.symmetric(horizontal: 5),
             child: Text(
-              '$g',
+              '$mine',
               style: TextStyle(
-                color: Colors.white.withValues(alpha: 0.65),
-                fontWeight: FontWeight.w600,
-                fontSize: 16,
+                color: wonSet
+                    ? Colors.white
+                    : Colors.white.withValues(alpha: 0.45),
+                fontWeight: wonSet ? FontWeight.bold : FontWeight.w500,
+                fontSize: wonSet ? 17 : 16,
               ),
             ),
-          ),
-        ),
+          );
+        }),
         // Set en curso
         if (currentGames != null)
           Padding(

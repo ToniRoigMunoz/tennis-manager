@@ -35,4 +35,36 @@ class ApiService {
     '&opponentOverall=$opponentOverall'
     '&bestOf=$bestOf',
   );
+
+  static Future<void> _post(String path, Map<String, dynamic> body) async {
+    final uri = Uri.parse('${Config.apiBaseUrl}/$path');
+    final response = await http
+        .post(
+          uri,
+          headers: {'Content-Type': 'application/json'},
+          body: jsonEncode(body),
+        )
+        .timeout(const Duration(seconds: 15));
+    if (response.statusCode != 200) {
+      throw Exception('Error ${response.statusCode} en $path');
+    }
+  }
+
+  static Future<void> saveMatchResult({
+    required String userId,
+    required String opponentName,
+    required bool won,
+    required String setsScore,
+    required int aces,
+    required int winners,
+    required int unforcedErrors,
+  }) => _post('SaveMatchResult', {
+    'userId': userId,
+    'opponentName': opponentName,
+    'won': won,
+    'setsScore': setsScore,
+    'aces': aces,
+    'winners': winners,
+    'unforcedErrors': unforcedErrors,
+  });
 }

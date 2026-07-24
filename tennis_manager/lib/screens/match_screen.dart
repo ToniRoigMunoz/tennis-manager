@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../config.dart';
 import '../models/match_models.dart';
 import '../providers/match_playback.dart';
+import '../providers/player_provider.dart';
 import '../services/api_service.dart';
 import 'widgets/live_scoreboard.dart';
 import 'widgets/point_narration.dart';
@@ -9,7 +11,7 @@ import 'widgets/live_stats_panel.dart';
 import 'widgets/playback_controls.dart';
 import 'widgets/error_view.dart';
 
-class MatchScreen extends StatefulWidget {
+class MatchScreen extends ConsumerStatefulWidget {
   final String opponentName;
   final String tournamentName;
   final String round;
@@ -22,12 +24,13 @@ class MatchScreen extends StatefulWidget {
   });
 
   @override
-  State<MatchScreen> createState() => _MatchScreenState();
+  ConsumerState<MatchScreen> createState() => _MatchScreenState();
 }
 
-class _MatchScreenState extends State<MatchScreen> {
+class _MatchScreenState extends ConsumerState<MatchScreen> {
   MatchPlaybackController? _controller;
   bool _loading = true;
+  bool _saving = false;
   Object? _error;
 
   @override
@@ -55,6 +58,32 @@ class _MatchScreenState extends State<MatchScreen> {
         _error = e;
         _loading = false;
       });
+    }
+  }
+
+  Future<void> _continue() async {
+    final c = _controller!;
+    setState(() => _saving = true);
+    try {
+      // El jugador humano siempre es el 1 en SimulateMatch
+      await ApiService.saveMatchResult(
+        userId: Config.demoUserId,
+        opponentName: c.match.player2Name,
+        won: c.match.winner == 1,
+        setsScore: c.match.setsScore,
+        aces: c.match.stats1.aces,
+        winners: c.match.stats1.winners,
+        unforcedErrors: c.match.stats1.unforcedErrors,
+      );
+      ref.invalidate(playerProvider); // fuerza recarga al volver
+      if (mounted) Navigator.of(context).pop();
+    } catch (e) {
+      if (mounted) {
+        setState(() => _saving = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('No se pudo guardar el resultado')),
+        );
+      }
     }
   }
 
@@ -157,13 +186,33 @@ class _MatchScreenState extends State<MatchScreen> {
                   p2Name: c.match.player2Name,
                 ),
               const SizedBox(height: 14),
-              PlaybackControls(controller: c),
+              if (!finished) PlaybackControls(controller: c),
               const SizedBox(height: 16),
               LiveStatsPanel(
                 stats: c.liveStats,
                 p1Name: c.match.player1Name,
                 p2Name: c.match.player2Name,
               ),
+              if (finished) ...[
+                const SizedBox(height: 20),
+                SizedBox(
+                  width: double.infinity,
+                  child: FilledButton.icon(
+                    onPressed: _saving ? null : _continue,
+                    icon: _saving
+                        ? const SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.check_rounded),
+                    label: Text(_saving ? 'Guardando…' : 'Continuar'),
+                    style: FilledButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                    ),
+                  ),
+                ),
+              ],
             ],
           ),
         );

@@ -149,6 +149,10 @@ namespace TennisApi
 
                 bool tbOver = (pts1 >= 7 || pts2 >= 7) && Math.Abs(pts1 - pts2) >= 2;
 
+                // Si el tie-break se cierra, el juego ya cuenta para el marcador (7-6)
+                int shownG1 = g1 + (tbOver && pts1 > pts2 ? 1 : 0);
+                int shownG2 = g2 + (tbOver && pts2 > pts1 ? 1 : 0);
+
                 result.Points.Add(new PointEvent
                 {
                     Server = server,
@@ -156,8 +160,8 @@ namespace TennisApi
                     Outcome = outcome,
                     P1GameScore = pts1.ToString(),
                     P2GameScore = pts2.ToString(),
-                    P1Games = g1,
-                    P2Games = g2,
+                    P1Games = shownG1,
+                    P2Games = shownG2,
                     P1Sets = sets1,
                     P2Sets = sets2,
                     SetIndex = setIndex,
