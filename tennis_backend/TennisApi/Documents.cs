@@ -87,6 +87,7 @@ namespace TennisApi
         [JsonPropertyName("points")]     public int Points { get; set; }
         // userId es la referencia real; name es un caché que GetLeagueData sobreescribe en lectura
         [JsonPropertyName("userId")]     public string? UserId { get; set; }
+        [JsonPropertyName("botId")]      public string? BotId { get; set; }
         [JsonPropertyName("recentForm")] public List<bool> RecentForm { get; set; } = [];
     }
 
@@ -110,5 +111,20 @@ namespace TennisApi
         [JsonPropertyName("status")]       public string Status { get; set; } = "";
         [JsonPropertyName("dateLabel")]    public string DateLabel { get; set; } = "";
         [JsonPropertyName("resultLabel")]  public string? ResultLabel { get; set; }
+    }
+
+    // ── BOTS — jugadores controlados por el sistema ───────────────────────────
+    public class BotDocument
+    {
+        [JsonPropertyName("id")]              public string Id { get; set; } = "";
+        [JsonPropertyName("leagueId")]        public string LeagueId { get; set; } = "";
+        [JsonPropertyName("name")]            public string Name { get; set; } = "";
+        [JsonPropertyName("nationality")]     public string Nationality { get; set; } = "";
+        [JsonPropertyName("nationalityFlag")] public string NationalityFlag { get; set; } = "";
+        [JsonPropertyName("playingStyle")]    public string PlayingStyle { get; set; } = "";
+        [JsonPropertyName("overall")]         public int Overall { get; set; }
+        [JsonPropertyName("physical")]        public List<AttributeDoc> Physical { get; set; } = [];
+        [JsonPropertyName("mental")]          public List<AttributeDoc> Mental { get; set; } = [];
+        [JsonPropertyName("technical")]       public List<AttributeDoc> Technical { get; set; } = [];
     }
 }
