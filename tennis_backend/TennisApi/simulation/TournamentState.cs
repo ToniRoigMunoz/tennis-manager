@@ -1,0 +1,42 @@
+using System.Text.Json.Serialization;
+
+namespace TennisApi
+{
+    public class ActiveTournamentDoc
+    {
+        [JsonPropertyName("id")]           public string Id { get; set; } = "";       // = userId (un torneo activo por usuario)
+        [JsonPropertyName("userId")]       public string UserId { get; set; } = "";
+        [JsonPropertyName("leagueId")]     public string LeagueId { get; set; } = "";
+        [JsonPropertyName("tournamentName")] public string TournamentName { get; set; } = "";
+        [JsonPropertyName("surface")]      public string Surface { get; set; } = "";
+        [JsonPropertyName("seed")]         public int Seed { get; set; }
+        [JsonPropertyName("currentRound")] public int CurrentRound { get; set; }      // 0 = primera ronda jugada
+        [JsonPropertyName("humanAlive")]   public bool HumanAlive { get; set; } = true;
+        [JsonPropertyName("humanEliminatedRound")] public int HumanEliminatedRound { get; set; } = -1;
+        [JsonPropertyName("finished")]     public bool Finished { get; set; }
+        [JsonPropertyName("championId")]   public string? ChampionId { get; set; }
+
+        // Los que siguen vivos y esperan a la siguiente ronda (incluye byes)
+        [JsonPropertyName("survivors")]    public List<Participant> Survivors { get; set; } = [];
+        // Historial de resultados por ronda, para reconstruir el recorrido del humano
+        [JsonPropertyName("history")]      public List<RoundRecord> History { get; set; } = [];
+        // Cuántas rondas alcanzó cada participante (para repartir puntos al final)
+        [JsonPropertyName("reachedRound")] public Dictionary<string, int> ReachedRound { get; set; } = [];
+    }
+
+    public class RoundRecord
+    {
+        [JsonPropertyName("roundName")] public string RoundName { get; set; } = "";
+        [JsonPropertyName("results")]   public List<MatchRecord> Results { get; set; } = [];
+    }
+
+    public class MatchRecord
+    {
+        [JsonPropertyName("p1Name")]   public string P1Name { get; set; } = "";
+        [JsonPropertyName("p2Name")]   public string P2Name { get; set; } = "";
+        [JsonPropertyName("winnerId")] public string WinnerId { get; set; } = "";
+        [JsonPropertyName("winnerName")] public string WinnerName { get; set; } = "";
+        [JsonPropertyName("setsScore")] public string SetsScore { get; set; } = "";
+        [JsonPropertyName("involvesHuman")] public bool InvolvesHuman { get; set; }
+    }
+}
