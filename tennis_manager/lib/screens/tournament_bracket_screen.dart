@@ -3,7 +3,7 @@ import '../models/tournament_bracket_models.dart';
 
 class TournamentBracketScreen extends StatelessWidget {
   final TournamentStep step;
-  final VoidCallback onContinue;
+  final void Function(BuildContext) onContinue;
 
   const TournamentBracketScreen({
     super.key,
@@ -42,7 +42,7 @@ class TournamentBracketScreen extends StatelessWidget {
               child: SizedBox(
                 width: double.infinity,
                 child: FilledButton.icon(
-                  onPressed: onContinue,
+                  onPressed: () => onContinue(context),
                   icon: const Icon(Icons.check_rounded),
                   label: const Text('Continuar'),
                   style: FilledButton.styleFrom(

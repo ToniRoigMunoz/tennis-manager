@@ -105,9 +105,9 @@ class _MatchScreenState extends ConsumerState<MatchScreen> {
             MaterialPageRoute(
               builder: (_) => TournamentBracketScreen(
                 step: step,
-                onContinue: () {
-                  // Volver a General y refrescar
-                  Navigator.of(context).popUntil((r) => r.isFirst);
+                onContinue: (bracketContext) {
+                  // Usa el contexto del propio bracket, que sí está vivo
+                  Navigator.of(bracketContext).popUntil((r) => r.isFirst);
                   ref.invalidate(tournamentFlowProvider);
                   ref.invalidate(playerProvider);
                 },
