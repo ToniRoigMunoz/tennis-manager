@@ -3,7 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/player_provider.dart';
 import '../providers/league_provider.dart';
 import '../providers/tournament_provider.dart';
-import 'widgets/next_match_card.dart';
+import '../providers/tournament_flow_provider.dart';
+import 'widgets/tournament_match_card.dart';
+import 'widgets/no_match_card.dart';
 import 'widgets/ranking_summary_card.dart';
 import 'widgets/last_match_card.dart';
 import 'widgets/upcoming_tournaments_strip.dart';
@@ -25,6 +27,7 @@ class GeneralScreen extends ConsumerWidget {
     final playerAsync = ref.watch(playerProvider);
     final leagueAsync = ref.watch(leagueProvider);
     final tourAsync = ref.watch(tournamentProvider);
+    final flowAsync = ref.watch(tournamentFlowProvider);
 
     final isLoading = [
       playerAsync,
@@ -52,29 +55,42 @@ class GeneralScreen extends ConsumerWidget {
     final league = leagueAsync.value!;
     final tournaments = tourAsync.value!;
 
+    // La tarjeta superior depende del estado del torneo activo
+    final flow = flowAsync.valueOrNull;
+    final canPlay = flow?.canPlay ?? false;
+
     return LayoutBuilder(
       builder: (context, constraints) {
         final topHeight = constraints.maxHeight * 0.33;
-        return Column(
-          children: [
-            if (player.nextMatch != null)
-              SizedBox(
-                height: topHeight,
-                width: double.infinity,
-                child: NextMatchCard(
-                  match: player.nextMatch!,
-                  playerName: player.profile.name,
-                  onPlayTap: () => Navigator.of(context).push(
-                    MaterialPageRoute(
-                      builder: (_) => MatchScreen(
-                        opponentName: player.nextMatch!.opponentName,
-                        tournamentName: player.nextMatch!.tournamentName,
-                        round: player.nextMatch!.round,
-                      ),
-                    ),
-                  ),
+
+        Widget topCard;
+        if (flowAsync.isLoading) {
+          topCard = const Center(child: CircularProgressIndicator());
+        } else if (canPlay) {
+          topCard = TournamentMatchCard(
+            playerName: player.profile.name,
+            step: flow!.step,
+            onPlayTap: () => Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (_) => MatchScreen(
+                  opponentName: flow.step.opponent!.name,
+                  tournamentName: flow.step.tournamentName ?? 'Torneo',
+                  round: flow.step.roundName ?? '',
+                  isTournament: true,
+                  opponentOverall: flow.step.opponent!.overall,
+                  tournamentSeed:
+                      0, // el backend usa su propio seed; el del partido se deriva del rival
                 ),
               ),
+            ),
+          );
+        } else {
+          topCard = const NoMatchCard();
+        }
+
+        return Column(
+          children: [
+            SizedBox(height: topHeight, width: double.infinity, child: topCard),
             const SizedBox(height: 16),
             UpcomingTournamentsStrip(
               tournaments: tournaments.upcoming.take(3).toList(),

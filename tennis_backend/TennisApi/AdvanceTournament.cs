@@ -122,6 +122,10 @@ namespace TennisApi
                 {
                     state.CurrentRound++;
 
+                    // Nº real de jugadores en esta ronda = supervivientes vivos ahora mismo
+                    // (incluye al humano recién añadido). Se captura antes de emparejar.
+                    int playersInThisRound = state.Survivors.Count;
+
                     // Resolver la siguiente ronda saltando otra vez al humano
                     var (matches, nextHumanMatch, advancing) =
                         TournamentOrchestrator.ResolveRoundSkippingHuman(
@@ -137,9 +141,6 @@ namespace TennisApi
                     if (nextHumanMatch != null)
                     {
                         var opp = nextHumanMatch.Player1!.IsHuman ? nextHumanMatch.Player2! : nextHumanMatch.Player1!;
-                        // Nº de jugadores en la ronda que el humano está a punto de jugar:
-                        // los que ya pasaron (advancing) + el propio humano
-                        int playersInThisRound = advancing.Count + 1;
                         state.Survivors = advancing; // pendiente de sumar al humano tras su próximo partido
                         result = new
                         {
@@ -148,6 +149,7 @@ namespace TennisApi
                             surface = state.Surface,
                             roundName = TournamentBracket.RoundName(playersInThisRound),
                             opponent = new { opp.Id, opp.Name, opp.Overall },
+                            history = state.History,
                         };
                     }
                     else

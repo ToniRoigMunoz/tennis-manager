@@ -67,4 +67,53 @@ class ApiService {
     'winners': winners,
     'unforcedErrors': unforcedErrors,
   });
+
+  static Future<Map<String, dynamic>> _postJson(
+    String path,
+    Map<String, dynamic> body,
+  ) async {
+    final uri = Uri.parse('${Config.apiBaseUrl}/$path');
+    final response = await http
+        .post(
+          uri,
+          headers: {'Content-Type': 'application/json'},
+          body: jsonEncode(body),
+        )
+        .timeout(const Duration(seconds: 20));
+    if (response.statusCode != 200) {
+      throw Exception('Error ${response.statusCode} en $path');
+    }
+    return jsonDecode(response.body) as Map<String, dynamic>;
+  }
+
+  static Future<Map<String, dynamic>> startTournament({
+    required String userId,
+    required int seed,
+  }) => _postJson('StartTournament?userId=$userId&seed=$seed', {});
+
+  static Future<Map<String, dynamic>> advanceTournament({
+    required String userId,
+    required bool humanWon,
+    required String setsScore,
+  }) => _postJson('AdvanceTournament', {
+    'userId': userId,
+    'humanWon': humanWon,
+    'setsScore': setsScore,
+  });
+
+  // Simula el partido del torneo con el overall real del rival y un seed coherente
+  static Future<Map<String, dynamic>> simulateTournamentMatch({
+    required String userId,
+    required String opponentName,
+    required int opponentOverall,
+    required int seed,
+  }) => _get(
+    'SimulateMatch?userId=$userId'
+    '&opponentName=${Uri.encodeComponent(opponentName)}'
+    '&opponentOverall=$opponentOverall'
+    '&seed=$seed',
+  );
+
+  static Future<Map<String, dynamic>> getTournamentStatus(String userId) =>
+      _get('GetTournamentStatus?userId=$userId');
 }

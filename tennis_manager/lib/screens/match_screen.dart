@@ -10,17 +10,27 @@ import 'widgets/point_narration.dart';
 import 'widgets/live_stats_panel.dart';
 import 'widgets/playback_controls.dart';
 import 'widgets/error_view.dart';
+import '../providers/tournament_flow_provider.dart';
+import 'tournament_bracket_screen.dart';
 
 class MatchScreen extends ConsumerStatefulWidget {
   final String opponentName;
   final String tournamentName;
   final String round;
 
+  // Modo torneo (opcional)
+  final bool isTournament;
+  final int opponentOverall;
+  final int tournamentSeed;
+
   const MatchScreen({
     super.key,
     required this.opponentName,
     required this.tournamentName,
     required this.round,
+    this.isTournament = false,
+    this.opponentOverall = 72,
+    this.tournamentSeed = 0,
   });
 
   @override
@@ -39,16 +49,33 @@ class _MatchScreenState extends ConsumerState<MatchScreen> {
     _load();
   }
 
+  // Seed determinista derivado del torneo + rival, para que el resultado
+  // sea reproducible y "propiedad" del servidor.
+  int _matchSeed() {
+    int sum = 0;
+    for (final c in widget.opponentName.codeUnits) {
+      sum = (sum + c) % 100000;
+    }
+    return widget.tournamentSeed + sum;
+  }
+
   Future<void> _load() async {
     setState(() {
       _loading = true;
       _error = null;
     });
     try {
-      final json = await ApiService.simulateMatch(
-        userId: Config.demoUserId,
-        opponentName: widget.opponentName,
-      );
+      final json = widget.isTournament
+          ? await ApiService.simulateTournamentMatch(
+              userId: Config.demoUserId,
+              opponentName: widget.opponentName,
+              opponentOverall: widget.opponentOverall,
+              seed: _matchSeed(),
+            )
+          : await ApiService.simulateMatch(
+              userId: Config.demoUserId,
+              opponentName: widget.opponentName,
+            );
       final sim = MatchSimulation.fromJson(json);
       _controller?.dispose();
       _controller = MatchPlaybackController(sim)..play();
@@ -64,8 +91,43 @@ class _MatchScreenState extends ConsumerState<MatchScreen> {
   Future<void> _continue() async {
     final c = _controller!;
     setState(() => _saving = true);
+
+    if (widget.isTournament) {
+      try {
+        final step = await ref
+            .read(tournamentFlowProvider.notifier)
+            .reportResultAndAdvance(
+              humanWon: c.match.winner == 1,
+              setsScore: c.match.setsScore,
+            );
+        if (mounted) {
+          Navigator.of(context).pushReplacement(
+            MaterialPageRoute(
+              builder: (_) => TournamentBracketScreen(
+                step: step,
+                onContinue: () {
+                  // Volver a General y refrescar
+                  Navigator.of(context).popUntil((r) => r.isFirst);
+                  ref.invalidate(tournamentFlowProvider);
+                  ref.invalidate(playerProvider);
+                },
+              ),
+            ),
+          );
+        }
+      } catch (e) {
+        if (mounted) {
+          setState(() => _saving = false);
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('No se pudo avanzar el torneo')),
+          );
+        }
+      }
+      return;
+    }
+
+    // Modo amistoso (comportamiento original)
     try {
-      // El jugador humano siempre es el 1 en SimulateMatch
       await ApiService.saveMatchResult(
         userId: Config.demoUserId,
         opponentName: c.match.player2Name,
@@ -75,7 +137,7 @@ class _MatchScreenState extends ConsumerState<MatchScreen> {
         winners: c.match.stats1.winners,
         unforcedErrors: c.match.stats1.unforcedErrors,
       );
-      ref.invalidate(playerProvider); // fuerza recarga al volver
+      ref.invalidate(playerProvider);
       if (mounted) Navigator.of(context).pop();
     } catch (e) {
       if (mounted) {
