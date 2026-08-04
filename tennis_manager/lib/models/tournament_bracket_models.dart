@@ -10,6 +10,7 @@ class TournamentStep {
   final bool? humanWonTournament;
   final int? humanEliminatedRound;
   final String? championName;
+  final TournamentRewards? rewards;
   final List<BracketRound> history;
 
   const TournamentStep({
@@ -21,6 +22,7 @@ class TournamentStep {
     this.humanWonTournament,
     this.humanEliminatedRound,
     this.championName,
+    this.rewards,
     this.history = const [],
   });
 
@@ -38,6 +40,9 @@ class TournamentStep {
     humanWonTournament: json['humanWonTournament'] as bool?,
     humanEliminatedRound: json['humanEliminatedRound'] as int?,
     championName: json['championName'] as String?,
+    rewards: json['rewards'] != null
+        ? TournamentRewards.fromJson(json['rewards'] as Map<String, dynamic>)
+        : null,
     history:
         (json['history'] as List?)
             ?.map((e) => BracketRound.fromJson(e as Map<String, dynamic>))
@@ -101,5 +106,33 @@ class BracketMatchResult {
         winnerName: json['winnerName'] as String,
         setsScore: json['setsScore'] as String,
         involvesHuman: json['involvesHuman'] as bool,
+      );
+}
+
+class TournamentRewards {
+  final int pointsEarned;
+  final int moneyEarned;
+  final int restsEarned;
+  final int attributePointsApplied;
+  final double attributeProgress;
+  final bool isChampion;
+
+  const TournamentRewards({
+    required this.pointsEarned,
+    required this.moneyEarned,
+    required this.restsEarned,
+    required this.attributePointsApplied,
+    required this.attributeProgress,
+    required this.isChampion,
+  });
+
+  factory TournamentRewards.fromJson(Map<String, dynamic> json) =>
+      TournamentRewards(
+        pointsEarned: json['pointsEarned'] as int,
+        moneyEarned: json['moneyEarned'] as int,
+        restsEarned: json['restsEarned'] as int,
+        attributePointsApplied: json['attributePointsApplied'] as int,
+        attributeProgress: (json['attributeProgress'] as num).toDouble(),
+        isChampion: json['isChampion'] as bool,
       );
 }

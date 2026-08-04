@@ -12,6 +12,7 @@ import 'widgets/playback_controls.dart';
 import 'widgets/error_view.dart';
 import '../providers/tournament_flow_provider.dart';
 import 'tournament_bracket_screen.dart';
+import '../providers/user_resources_provider.dart';
 
 class MatchScreen extends ConsumerStatefulWidget {
   final String opponentName;
@@ -106,10 +107,7 @@ class _MatchScreenState extends ConsumerState<MatchScreen> {
               builder: (_) => TournamentBracketScreen(
                 step: step,
                 onContinue: (bracketContext) {
-                  // Usa el contexto del propio bracket, que sí está vivo
                   Navigator.of(bracketContext).popUntil((r) => r.isFirst);
-                  ref.invalidate(tournamentFlowProvider);
-                  ref.invalidate(playerProvider);
                 },
               ),
             ),

@@ -78,8 +78,7 @@ class GeneralScreen extends ConsumerWidget {
                   round: flow.step.roundName ?? '',
                   isTournament: true,
                   opponentOverall: flow.step.opponent!.overall,
-                  tournamentSeed:
-                      0, // el backend usa su propio seed; el del partido se deriva del rival
+                  tournamentSeed: 0,
                 ),
               ),
             ),

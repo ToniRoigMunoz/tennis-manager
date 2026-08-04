@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../models/tournament_bracket_models.dart';
+import 'widgets/rewards_panel.dart';
 
 class TournamentBracketScreen extends StatelessWidget {
   final TournamentStep step;
@@ -26,6 +27,8 @@ class TournamentBracketScreen extends StatelessWidget {
       body: Column(
         children: [
           if (finished) _FinishedBanner(step: step),
+          if (finished && step.rewards != null)
+            RewardsPanel(rewards: step.rewards!),
           Expanded(
             child: ListView.builder(
               padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
