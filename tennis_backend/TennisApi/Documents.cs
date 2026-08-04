@@ -34,6 +34,7 @@ namespace TennisApi
         // Los partidos viven aquí: pertenecen al jugador, no a la cuenta
         [JsonPropertyName("nextMatch")]       public MatchDoc? NextMatch { get; set; }
         [JsonPropertyName("lastMatch")]       public MatchResultDoc? LastMatch { get; set; }
+        [JsonPropertyName("attributeProgress")] public double AttributeProgress { get; set; }
     }
 
     public class MatchDoc

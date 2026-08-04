@@ -41,6 +41,7 @@ namespace TennisApi
                 Survivors = [.. byes, .. advancingNonHuman],
                 ReachedRound = [],
                 History = [],
+                Category = todayTournament.Category,
             };
 
             RecordRound(state, matches, TournamentBracket.RoundName(playing.Count));

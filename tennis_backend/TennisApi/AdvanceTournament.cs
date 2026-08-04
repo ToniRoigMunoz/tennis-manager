@@ -93,6 +93,8 @@ namespace TennisApi
                 state.Finished = true;
                 state.ChampionId = champion.Id;
 
+                var rewards = await ApplyHumanRewards(state, isChampion: false);
+
                 result = new
                 {
                     status = "finished",
@@ -100,6 +102,7 @@ namespace TennisApi
                     humanEliminatedRound = state.HumanEliminatedRound,
                     championName = champion.Name,
                     history = state.History,
+                    rewards,
                 };
             }
             else
@@ -110,12 +113,16 @@ namespace TennisApi
                     state.Finished = true;
                     state.ChampionId = state.UserId;
                     state.ReachedRound[state.UserId] = 1;
+
+                    var rewards = await ApplyHumanRewards(state, isChampion: true);
+
                     result = new
                     {
                         status = "finished",
                         humanWonTournament = true,
                         championName = human.Name,
                         history = state.History,
+                        rewards,
                     };
                 }
                 else
@@ -226,6 +233,90 @@ namespace TennisApi
             foreach (var p in state.Survivors)
                 if (p.Sim == null && simById.TryGetValue(p.Id, out var sim))
                     p.Sim = sim;
+        }
+
+        // Aplica las recompensas al humano cuando termina su recorrido en el torneo.
+        // Devuelve un resumen para el frontend.
+        private async Task<object> ApplyHumanRewards(ActiveTournamentDoc state, bool isChampion)
+        {
+            // Ronda donde cayó (o 1 si es campeón). ReachedRound guarda el tamaño de ronda.
+            int reachedRoundSize = state.ReachedRound.TryGetValue(state.UserId, out var rr) ? rr : 16;
+
+            // 1. Calcular recompensas según categoría y ronda
+            int championPoints = TournamentRewards.ChampionPoints(state.Category);
+            double fraction = TournamentRewards.PointsFractionByRound(reachedRoundSize, isChampion);
+            int pointsEarned = (int)Math.Round(championPoints * fraction);
+            int moneyEarned = TournamentRewards.MoneyFromPoints(pointsEarned);
+            int restsEarned = TournamentRewards.RestsByRound(reachedRoundSize, isChampion);
+            double attrGain = isChampion ? TournamentRewards.ChampionAttributeGain(state.Category) : 0.0;
+
+            // 2. Actualizar el documento del jugador (dinero, descansos, atributos)
+            var playersContainer = cosmos.GetContainer("TennisManagerDB", "players");
+            var pQuery = new QueryDefinition("SELECT * FROM c WHERE c.userId = @uid").WithParameter("@uid", state.UserId);
+            var pOpts = new QueryRequestOptions { PartitionKey = new PartitionKey(state.UserId) };
+            using var pIter = playersContainer.GetItemQueryIterator<PlayerDocument>(pQuery, requestOptions: pOpts);
+            var pPage = await pIter.ReadNextAsync();
+            var playerDoc = pPage.FirstOrDefault();
+
+            int attrPointsApplied = 0;
+            if (playerDoc != null)
+            {
+                // Subida fraccionada de atributos: acumular y aplicar +1 cuando se llega a 1.0
+                if (attrGain > 0)
+                {
+                    playerDoc.AttributeProgress += attrGain;
+                    while (playerDoc.AttributeProgress >= 1.0)
+                    {
+                        playerDoc.AttributeProgress -= 1.0;
+                        attrPointsApplied++;
+                    }
+                    if (attrPointsApplied > 0)
+                    {
+                        BumpAllAttributes(playerDoc.Physical, attrPointsApplied);
+                        BumpAllAttributes(playerDoc.Mental, attrPointsApplied);
+                        BumpAllAttributes(playerDoc.Technical, attrPointsApplied);
+                    }
+                }
+                await playersContainer.UpsertItemAsync(playerDoc, new PartitionKey(state.UserId));
+            }
+
+            // 3. Actualizar dinero y descansos en el documento de usuario
+            var usersContainer = cosmos.GetContainer("TennisManagerDB", "users");
+            var userDoc = (await usersContainer.ReadItemAsync<UserDocument>(state.UserId, new PartitionKey(state.UserId))).Resource;
+            userDoc.Money += moneyEarned;
+            userDoc.Rests += restsEarned;
+            await usersContainer.UpsertItemAsync(userDoc, new PartitionKey(state.UserId));
+
+            // 4. Sumar puntos al ranking de la liga
+            var leaguesContainer = cosmos.GetContainer("TennisManagerDB", "leagues");
+            var league = (await leaguesContainer.ReadItemAsync<LeagueDocument>(state.LeagueId, new PartitionKey(state.LeagueId))).Resource;
+            var myStanding = league.Standings.FirstOrDefault(s => s.UserId == state.UserId);
+            if (myStanding != null)
+            {
+                myStanding.Points += pointsEarned;
+                // Reordenar la clasificación por puntos y reasignar posiciones
+                league.Standings.Sort((a, b) => b.Points.CompareTo(a.Points));
+                for (int i = 0; i < league.Standings.Count; i++)
+                    league.Standings[i].Position = i + 1;
+                await leaguesContainer.UpsertItemAsync(league, new PartitionKey(state.LeagueId));
+            }
+
+            // 5. Resumen para el frontend
+            return new
+            {
+                pointsEarned,
+                moneyEarned,
+                restsEarned,
+                attributePointsApplied = attrPointsApplied,
+                attributeProgress = playerDoc?.AttributeProgress ?? 0.0,
+                isChampion,
+            };
+        }
+
+        private static void BumpAllAttributes(List<AttributeDoc> attrs, int amount)
+        {
+            foreach (var a in attrs)
+                a.Value = Math.Min(a.Value + amount, 99);
         }
     }
 }
