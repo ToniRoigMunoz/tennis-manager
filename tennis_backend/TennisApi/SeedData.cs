@@ -167,20 +167,43 @@ namespace TennisApi
                 Standings = standings,
             }, new PartitionKey(leagueId));
 
-            // ── TOURNAMENTS ───────────────────────────────────────────────────
+            // ── TOURNAMENTS — calendario completo de 28 días (circuito común) ──
             await db.GetContainer("tournaments").UpsertItemAsync(new TournamentDocument
             {
-                Id = "season-2026-01", SeasonId = "season-2026-01",
-                CurrentDay = 9, TotalDays = 28,
+                Id = "season-2026-01",
+                SeasonId = "season-2026-01",
+                CurrentDay = 1,
+                TotalDays = 28,
                 Tournaments =
                 [
-                    new() { Name = "Open de Castilla",      StartDay = 2,  DurationDays = 1, Surface = "Pista dura",    Category = "regular",   Status = "past",     DateLabel = "15 jun",    ResultLabel = "Eliminado en 2ª ronda" },
-                    new() { Name = "Grand Slam Roland Sur", StartDay = 5,  DurationDays = 2, Surface = "Tierra batida", Category = "grandSlam", Status = "past",     DateLabel = "18-19 jun", ResultLabel = "Cuartos de final" },
-                    new() { Name = "Masters de Valencia",   StartDay = 9,  DurationDays = 1, Surface = "Tierra batida", Category = "regular",   Status = "current",  DateLabel = "22 jun" },
-                    new() { Name = "Open de Madrid",        StartDay = 16, DurationDays = 1, Surface = "Pista dura",    Category = "regular",   Status = "upcoming", DateLabel = "29 jun" },
-                    new() { Name = "Copa Mediterráneo",     StartDay = 23, DurationDays = 1, Surface = "Tierra batida", Category = "regular",   Status = "upcoming", DateLabel = "6 jul" },
-                    new() { Name = "Grand Slam Costa Azul", StartDay = 25, DurationDays = 2, Surface = "Hierba",        Category = "grandSlam", Status = "upcoming", DateLabel = "8-9 jul" },
-                    new() { Name = "Finales ATP",           StartDay = 27, DurationDays = 2, Surface = "Pista dura",    Category = "finals",    Status = "upcoming", DateLabel = "10-11 jul" },
+                    new() { Name = "Brisbane (250)", StartDay = 1,  DurationDays = 1, Surface = "Pista dura",    Category = "regular",   DateLabel = "Día 1" },
+                    new() { Name = "Adelaida (250)", StartDay = 2,  DurationDays = 1, Surface = "Tierra batida", Category = "regular",   DateLabel = "Día 2" },
+                    new() { Name = "Australia (2000)", StartDay = 3,  DurationDays = 1, Surface = "Pista dura",    Category = "regular",   DateLabel = "Día 3" },
+                    new() { Name = "Róterdam (500)", StartDay = 4,  DurationDays = 1, Surface = "Tierra batida", Category = "grandSlam", DateLabel = "Día 4" },
+                    new() { Name = "Río de Janeiro (500)", StartDay = 5,  DurationDays = 1, Surface = "Pista dura",    Category = "regular",   DateLabel = "Día 5" },
+                    new() { Name = "Acapulco (500)", StartDay = 6,  DurationDays = 1, Surface = "Tierra batida", Category = "regular",   DateLabel = "Día 6" },
+                    new() { Name = "Indian Wells (1000)", StartDay = 7,  DurationDays = 1, Surface = "Hierba",        Category = "regular",   DateLabel = "Día 7" },
+                    new() { Name = "Miami (1000)", StartDay = 8,  DurationDays = 1, Surface = "Tierra batida", Category = "regular",   DateLabel = "Día 8" },
+                    new() { Name = "Marrakech (250)", StartDay = 9,  DurationDays = 1, Surface = "Pista dura",    Category = "regular",   DateLabel = "Día 9" },
+                    new() { Name = "Montecarlo (1000)", StartDay = 10, DurationDays = 1, Surface = "Hierba",        Category = "grandSlam", DateLabel = "Día 10" },
+                    new() { Name = "Barcelona (500)", StartDay = 11, DurationDays = 1, Surface = "Tierra batida", Category = "regular",   DateLabel = "Día 11" },
+                    new() { Name = "Madrid (1000)", StartDay = 12, DurationDays = 1, Surface = "Pista dura",    Category = "regular",   DateLabel = "Día 12" },
+                    new() { Name = "Roma (1000)", StartDay = 13, DurationDays = 1, Surface = "Tierra batida", Category = "regular",   DateLabel = "Día 13" },
+                    new() { Name = "Hamburgo (500)", StartDay = 14, DurationDays = 1, Surface = "Pista dura",    Category = "regular",   DateLabel = "Día 14" },
+                    new() { Name = "Roland Garros (2000)", StartDay = 15, DurationDays = 1, Surface = "Tierra batida", Category = "grandSlam", DateLabel = "Día 15" },
+                    new() { Name = "Londres (500)", StartDay = 16, DurationDays = 1, Surface = "Pista dura",    Category = "regular",   DateLabel = "Día 16" },
+                    new() { Name = "Halle (500)", StartDay = 17, DurationDays = 1, Surface = "Tierra batida", Category = "regular",   DateLabel = "Día 17" },
+                    new() { Name = "Wimbledon (2000)", StartDay = 18, DurationDays = 1, Surface = "Hierba",        Category = "regular",   DateLabel = "Día 18" },
+                    new() { Name = "Washington (500)", StartDay = 19, DurationDays = 1, Surface = "Pista dura",    Category = "regular",   DateLabel = "Día 19" },
+                    new() { Name = "Canada (1000)", StartDay = 20, DurationDays = 1, Surface = "Hierba",        Category = "grandSlam", DateLabel = "Día 20" },
+                    new() { Name = "Cincinnati (1000)", StartDay = 21, DurationDays = 1, Surface = "Tierra batida", Category = "regular",   DateLabel = "Día 21" },
+                    new() { Name = "US (2000)", StartDay = 22, DurationDays = 1, Surface = "Pista dura",    Category = "regular",   DateLabel = "Día 22" },
+                    new() { Name = "Tokio (500)", StartDay = 23, DurationDays = 1, Surface = "Tierra batida", Category = "regular",   DateLabel = "Día 23" },
+                    new() { Name = "Shanghái (1000)", StartDay = 24, DurationDays = 1, Surface = "Pista dura",    Category = "regular",   DateLabel = "Día 24" },
+                    new() { Name = "Marsella (250)", StartDay = 25, DurationDays = 1, Surface = "Tierra batida", Category = "regular",   DateLabel = "Día 25" },
+                    new() { Name = "Basilea (500)", StartDay = 26, DurationDays = 1, Surface = "Pista dura",    Category = "grandSlam", DateLabel = "Día 26" },
+                    new() { Name = "París (1000)", StartDay = 27, DurationDays = 1, Surface = "Pista dura",    Category = "regular",   DateLabel = "Día 27" },
+                    new() { Name = "Finales (1500)", StartDay = 28, DurationDays = 1, Surface = "Pista dura",    Category = "finals",    DateLabel = "Día 28" },
                 ],
             }, new PartitionKey("season-2026-01"));
 
