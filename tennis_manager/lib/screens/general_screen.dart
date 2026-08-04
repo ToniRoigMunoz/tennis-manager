@@ -11,6 +11,7 @@ import 'widgets/last_match_card.dart';
 import 'widgets/upcoming_tournaments_strip.dart';
 import 'widgets/error_view.dart';
 import 'match_screen.dart';
+import '../providers/user_resources_provider.dart';
 
 class GeneralScreen extends ConsumerWidget {
   final VoidCallback onRankingTap;
@@ -70,18 +71,23 @@ class GeneralScreen extends ConsumerWidget {
           topCard = TournamentMatchCard(
             playerName: player.profile.name,
             step: flow!.step,
-            onPlayTap: () => Navigator.of(context).push(
-              MaterialPageRoute(
-                builder: (_) => MatchScreen(
-                  opponentName: flow.step.opponent!.name,
-                  tournamentName: flow.step.tournamentName ?? 'Torneo',
-                  round: flow.step.roundName ?? '',
-                  isTournament: true,
-                  opponentOverall: flow.step.opponent!.overall,
-                  tournamentSeed: 0,
+            onPlayTap: () async {
+              await Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => MatchScreen(
+                    opponentName: flow.step.opponent!.name,
+                    tournamentName: flow.step.tournamentName ?? 'Torneo',
+                    round: flow.step.roundName ?? '',
+                    isTournament: true,
+                    opponentOverall: flow.step.opponent!.overall,
+                    tournamentSeed: 0,
+                  ),
                 ),
-              ),
-            ),
+              );
+              ref.invalidate(tournamentFlowProvider);
+              ref.invalidate(playerProvider);
+              ref.invalidate(userDataProvider);
+            },
           );
         } else {
           topCard = const NoMatchCard();
