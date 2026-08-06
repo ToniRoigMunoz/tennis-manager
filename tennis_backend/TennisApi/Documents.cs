@@ -127,5 +127,6 @@ namespace TennisApi
         [JsonPropertyName("physical")]        public List<AttributeDoc> Physical { get; set; } = [];
         [JsonPropertyName("mental")]          public List<AttributeDoc> Mental { get; set; } = [];
         [JsonPropertyName("technical")]       public List<AttributeDoc> Technical { get; set; } = [];
+        [JsonPropertyName("attributeProgress")] public double AttributeProgress { get; set; }
     }
 }
