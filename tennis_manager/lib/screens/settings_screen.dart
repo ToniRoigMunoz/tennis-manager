@@ -8,6 +8,8 @@ import '../providers/tournament_flow_provider.dart';
 import 'widgets/profile_header_card.dart';
 import 'widgets/settings_section.dart';
 import 'widgets/settings_tile.dart';
+import '../providers/user_resources_provider.dart';
+import '../providers/player_provider.dart';
 
 class SettingsScreen extends ConsumerStatefulWidget {
   const SettingsScreen({super.key});
@@ -36,6 +38,10 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       ref.invalidate(tournamentProvider); // día de temporada
       ref.invalidate(leagueProvider); // clasificación (bots puntuaron)
       ref.invalidate(tournamentFlowProvider); // nuevo torneo del día
+      ref.invalidate(
+        userDataProvider,
+      ); // dinero y descansos (recompensas del auto-resuelto)
+      ref.invalidate(playerProvider); // atributos y último partido del jugador
 
       if (mounted) _showResultDialog(result);
     } catch (e) {
