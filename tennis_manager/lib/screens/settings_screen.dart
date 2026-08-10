@@ -22,7 +22,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   bool _weeklySummary = false;
   bool _soundEffects = true;
   bool _haptics = true;
-  final bool _darkMode = false;
 
   bool _advancingDay = false;
 
