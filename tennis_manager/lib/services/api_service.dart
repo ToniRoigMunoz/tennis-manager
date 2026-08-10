@@ -116,4 +116,7 @@ class ApiService {
 
   static Future<Map<String, dynamic>> getTournamentStatus(String userId) =>
       _get('GetTournamentStatus?userId=$userId');
+
+  static Future<Map<String, dynamic>> advanceDay(String userId) =>
+      _postJson('AdvanceDay?userId=$userId', {});
 }
