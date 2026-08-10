@@ -79,6 +79,7 @@ namespace TennisApi
         [JsonPropertyName("qualificationSlots")] public int QualificationSlots { get; set; }
         [JsonPropertyName("seasonEndsLabel")]    public string SeasonEndsLabel { get; set; } = "";
         [JsonPropertyName("standings")]          public List<StandingDoc> Standings { get; set; } = [];
+        [JsonPropertyName("tier")] public int Tier { get; set; } = 1;
     }
 
     public class StandingDoc

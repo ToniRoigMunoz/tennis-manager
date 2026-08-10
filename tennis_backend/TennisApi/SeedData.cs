@@ -82,90 +82,17 @@ namespace TennisApi
                 },
             }, new PartitionKey("demo-user-001"));
 
-            // ── BOTS + LEAGUE ─────────────────────────────────────────────────
-            const string leagueId = "league-elite-group-3";
+            // ── LIGAS EN PIRÁMIDE (3 divisiones) ──────────────────────────────
+            // Tier 1: Primera (élite) · Tier 2: Segunda (humano) · Tier 3: Tercera
+            await LeagueGenerator.Create(cosmos, "league-primera",
+                "Primera División", tier: 1, seed: 1001);
 
-            // (nombre, nacionalidad, bandera, puntos, forma reciente)
-            var roster = new (string Name, string Nat, string Flag, int Points, bool[] Form)[]
-            {
-                ("Marc Aguilar",     "España",   "🇪🇸", 4820, [true,  true,  true ]),
-                ("Núria Castell",    "España",   "🇪🇸", 4690, [true,  false, true ]),
-                ("Iker Bilbao",      "España",   "🇪🇸", 4490, [true,  true,  false]),
-                ("Pau Soler",        "España",   "🇪🇸", 4205, [false, true,  true ]),
-                ("Diego Roma",       "Italia",   "🇮🇹", 4102, [true,  false, false]),
-                ("Laura Vidal",      "España",   "🇪🇸", 3980, [false, true,  true ]),
-                ("Hugo Prats",       "Francia",  "🇫🇷", 3850, [true,  true,  true ]),
-                ("Mireia Costa",     "España",   "🇪🇸", 3780, [true,  false, true ]),
-                ("Adrián Ruiz",      "España",   "🇪🇸", 3720, [false, false, true ]),
-                ("Sara Llopis",      "España",   "🇪🇸", 3680, [true,  false, false]),
-                // ── posición 11: jugador humano ──
-                ("Bruno Ferrer",     "España",   "🇪🇸", 3590, [false, false, true ]),
-                ("Clara Munté",      "España",   "🇪🇸", 3520, [false, true,  false]),
-                ("Toni Beltrán",     "España",   "🇪🇸", 3470, [true,  false, false]),
-                ("Eva Domingo",      "Portugal", "🇵🇹", 3410, [false, true,  false]),
-                ("Raúl Esteve",      "España",   "🇪🇸", 3350, [false, false, true ]),
-                ("Marina Soto",      "Argentina","🇦🇷", 3290, [true,  true,  false]),
-                ("Jordi Pla",        "España",   "🇪🇸", 3230, [false, false, false]),
-                ("Lucía Ferrando",   "España",   "🇪🇸", 3170, [true,  false, true ]),
-                ("Pablo Sanchís",    "España",   "🇪🇸", 3100, [false, true,  false]),
-                ("Andrea Gil",       "España",   "🇪🇸", 3040, [false, false, true ]),
-                ("Víctor Calatayud", "España",   "🇪🇸", 2980, [true,  false, false]),
-                ("Carla Mora",       "Brasil",   "🇧🇷", 2920, [false, false, false]),
-                ("Òscar Beneyto",    "España",   "🇪🇸", 2860, [false, true,  false]),
-            };
+            await LeagueGenerator.Create(cosmos, "league-elite-group-3",
+                "Segunda División", tier: 2, seed: 2002,
+                humanUserId: "demo-user-001", humanPosition: 11);
 
-            var botsContainer = db.GetContainer("bots");
-            var standings = new List<StandingDoc>();
-            int rosterIdx = 0;
-
-            for (int position = 1; position <= 24; position++)
-            {
-                // El puesto 11 lo ocupa el jugador humano
-                if (position == 11)
-                {
-                    standings.Add(new StandingDoc
-                    {
-                        Position = 11,
-                        Name = "Toni Roig",
-                        Points = 3640,
-                        UserId = "demo-user-001",
-                        RecentForm = [false, true, false],
-                    });
-                    continue;
-                }
-
-                var r = roster[rosterIdx++];
-                var botId = $"bot-{leagueId}-{position:D2}";
-
-                // Nivel según posición: 82 en el nº1, ~54 en el nº24
-                var overall = (int)Math.Round(82 - (position - 1) * 1.22);
-
-                var bot = BotFactory.Create(
-                    leagueId, botId, r.Name, r.Nat, r.Flag, overall,
-                    seed: position * 7919); // determinista: mismo bot en cada reseed
-
-                await botsContainer.UpsertItemAsync(bot, new PartitionKey(leagueId));
-
-                standings.Add(new StandingDoc
-                {
-                    Position = position,
-                    Name = r.Name,
-                    Points = r.Points,
-                    BotId = botId,
-                    RecentForm = [.. r.Form],
-                });
-            }
-
-            await db.GetContainer("leagues").UpsertItemAsync(new LeagueDocument
-            {
-                Id = leagueId,
-                LeagueId = leagueId,
-                Name = "Liga Élite · Grupo 3",
-                TotalPlayers = 24,
-                QualificationSlots = 8,
-                SeasonEndsLabel = "Termina en 12 días",
-                Standings = standings,
-            }, new PartitionKey(leagueId));
+            await LeagueGenerator.Create(cosmos, "league-tercera",
+                "Tercera División", tier: 3, seed: 3003);
 
             // ── TOURNAMENTS — calendario completo de 28 días (circuito común) ──
             await db.GetContainer("tournaments").UpsertItemAsync(new TournamentDocument
