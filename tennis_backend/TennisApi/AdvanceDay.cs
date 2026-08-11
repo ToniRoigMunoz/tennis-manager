@@ -86,8 +86,19 @@ namespace TennisApi
                 var toursContainer = cosmos.GetContainer("TennisManagerDB", "tournaments");
                 var season = (await toursContainer.ReadItemAsync<TournamentDocument>(user.SeasonId, new PartitionKey(user.SeasonId))).Resource;
                 int previousDay = season.CurrentDay;
-                if (season.CurrentDay < season.TotalDays)
+                object? endSeasonSummary = null;
+
+                if (season.CurrentDay >= season.TotalDays)
+                {
+                    // Fin de temporada: campeones, ascensos/descensos, mejora de atributos, reset
+                    endSeasonSummary = await EndSeason.Run(cosmos, userId);
+                    season.CurrentDay = 1;
+                    season.SeasonNumber = (season.SeasonNumber <= 0 ? 1 : season.SeasonNumber) + 1;
+                }
+                else
+                {
                     season.CurrentDay++;
+                }
                 await toursContainer.UpsertItemAsync(season, new PartitionKey(user.SeasonId));
 
                 // 7. Limpiar el torneo del día (para que mañana se cree uno nuevo)
@@ -111,6 +122,7 @@ namespace TennisApi
                     otherLeaguesResolved,
                     distributionNote,
                     elapsedMs = sw.ElapsedMilliseconds,
+                    endSeason = endSeasonSummary,
                 };
 
                 var res = req.CreateResponse(HttpStatusCode.OK);

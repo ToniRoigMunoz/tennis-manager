@@ -101,6 +101,7 @@ namespace TennisApi
         [JsonPropertyName("currentDay")]  public int CurrentDay { get; set; }
         [JsonPropertyName("totalDays")]   public int TotalDays { get; set; }
         [JsonPropertyName("tournaments")] public List<TournamentEntry> Tournaments { get; set; } = [];
+        [JsonPropertyName("seasonNumber")] public int SeasonNumber { get; set; } = 1;
     }
 
     public class TournamentEntry
