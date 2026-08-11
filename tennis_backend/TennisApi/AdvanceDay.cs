@@ -48,14 +48,21 @@ namespace TennisApi
                     distributionNote = "El jugador no terminó su torneo; el servidor lo resolvió automáticamente.";
                 }
 
-                // 4. Repartir puntos a los bots si hay un torneo (ya terminado)
+                // 4. Repartir puntos a la liga del humano
                 if (state != null && state.Finished)
                 {
                     botsRewarded = await DistributeBotRewards(state);
                 }
                 else if (state == null)
                 {
-                    distributionNote = "No había torneo activo hoy; no se repartieron puntos a bots.";
+                    // No había torneo activo: resolvemos la liga del humano en headless,
+                    // aplicándole SUS recompensas según hasta dónde llegue.
+                    var catForHuman = await GetTodayCategory(user.SeasonId);
+                    var (botsR, humanRound) = await HeadlessLeagueResolver.ResolveDailyTournament(
+                        cosmos, user.LeagueId, catForHuman, Random.Shared.Next(),
+                        humanUserId: userId);
+                    botsRewarded = botsR;
+                    distributionNote = $"El jugador no abrió la app; su torneo se resolvió solo (llegó a ronda de {humanRound}).";
                 }
 
                 // 5. Resolver el torneo diario de las otras ligas (sin humano)
@@ -377,6 +384,14 @@ namespace TennisApi
                 myStanding.Points += pointsEarned;
                 await leaguesContainer.UpsertItemAsync(league, new PartitionKey(state.LeagueId));
             }
+        }
+
+        private async Task<string> GetTodayCategory(string seasonId)
+        {
+            var tours = cosmos.GetContainer("TennisManagerDB", "tournaments");
+            var season = (await tours.ReadItemAsync<TournamentDocument>(seasonId, new PartitionKey(seasonId))).Resource;
+            var today = season.Tournaments.FirstOrDefault(t => t.StartDay == season.CurrentDay);
+            return today?.Category ?? "t250";
         }
     }
 }
