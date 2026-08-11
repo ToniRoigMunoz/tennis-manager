@@ -58,7 +58,24 @@ namespace TennisApi
                     distributionNote = "No había torneo activo hoy; no se repartieron puntos a bots.";
                 }
 
-                // 5. Incrementar el día de la temporada
+                // 5. Resolver el torneo diario de las otras ligas (sin humano)
+                var category = state?.Category ?? "t250";
+                // Categoría del torneo de hoy (para que todas las ligas usen la misma)
+                var toursForCat = cosmos.GetContainer("TennisManagerDB", "tournaments");
+                var seasonForCat = (await toursForCat.ReadItemAsync<TournamentDocument>(user.SeasonId, new PartitionKey(user.SeasonId))).Resource;
+                var todayTour = seasonForCat.Tournaments.FirstOrDefault(t => t.StartDay == seasonForCat.CurrentDay);
+                if (todayTour != null) category = todayTour.Category;
+
+                var otherLeagues = new[] { "league-primera", "league-tercera" };
+                int otherLeaguesResolved = 0;
+                foreach (var otherLeagueId in otherLeagues)
+                {
+                    var resolveSeed = Random.Shared.Next();
+                    await HeadlessLeagueResolver.ResolveDailyTournament(cosmos, otherLeagueId, category, resolveSeed);
+                    otherLeaguesResolved++;
+                }
+
+                // 6. Incrementar el día de la temporada
                 var toursContainer = cosmos.GetContainer("TennisManagerDB", "tournaments");
                 var season = (await toursContainer.ReadItemAsync<TournamentDocument>(user.SeasonId, new PartitionKey(user.SeasonId))).Resource;
                 int previousDay = season.CurrentDay;
@@ -66,7 +83,7 @@ namespace TennisApi
                     season.CurrentDay++;
                 await toursContainer.UpsertItemAsync(season, new PartitionKey(user.SeasonId));
 
-                // 6. Limpiar el torneo del día (para que mañana se cree uno nuevo)
+                // 7. Limpiar el torneo del día (para que mañana se cree uno nuevo)
                 if (state != null)
                 {
                     try
@@ -84,6 +101,7 @@ namespace TennisApi
                     totalDays = season.TotalDays,
                     seasonFinished = season.CurrentDay >= season.TotalDays,
                     botsRewarded,
+                    otherLeaguesResolved,
                     distributionNote,
                     elapsedMs = sw.ElapsedMilliseconds,
                 };
