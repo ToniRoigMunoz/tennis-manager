@@ -254,7 +254,8 @@ namespace TennisApi
 
                 if (humanWon)
                 {
-                    // El rival batido sale; el humano avanza
+                    // Registrar al rival batido en ReachedRound (cayó en la ronda actual) antes de quitarlo, para que reciba sus puntos.
+                    state.ReachedRound[opponent.Id] = RoundSizeFromName(lastRound.RoundName);
                     state.Survivors.RemoveAll(p => p.Name == opponentName && !p.IsHuman);
                     if (!state.Survivors.Any(p => p.IsHuman)) state.Survivors.Add(human);
                 }
