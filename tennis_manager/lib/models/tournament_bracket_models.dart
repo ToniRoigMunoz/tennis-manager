@@ -136,3 +136,33 @@ class TournamentRewards {
         isChampion: json['isChampion'] as bool,
       );
 }
+
+class SeasonEndResult {
+  final String championPrimera;
+  final String championSegunda;
+  final String championTercera;
+  final String humanMovement;
+
+  const SeasonEndResult({
+    required this.championPrimera,
+    required this.championSegunda,
+    required this.championTercera,
+    required this.humanMovement,
+  });
+
+  factory SeasonEndResult.fromJson(Map<String, dynamic> json) {
+    final champions = json['champions'] as Map<String, dynamic>? ?? {};
+    return SeasonEndResult(
+      championPrimera: champions['primera'] as String? ?? '—',
+      championSegunda: champions['segunda'] as String? ?? '—',
+      championTercera: champions['tercera'] as String? ?? '—',
+      humanMovement:
+          json['humanMovement'] as String? ?? 'se mantiene en su división',
+    );
+  }
+
+  // Clasifica el movimiento para pintar el color/icono adecuado
+  bool get isPromotion => humanMovement.contains('asciende');
+  bool get isRelegation => humanMovement.contains('desciende');
+  bool get isStay => !isPromotion && !isRelegation;
+}

@@ -54,8 +54,15 @@ namespace TennisApi
                 humanMatch.WinnerName = human.Name;
                 humanMatch.SetsScore = payload.SetsScore;
 
-                // El rival batido no puede seguir vivo
+                // El rival batido no puede seguir vivo. Lo registramos en ReachedRound
+                // (cayó en la ronda actual) ANTES de quitarlo, para que reciba sus puntos.
                 var beatenName = humanMatch.P1Name == human.Name ? humanMatch.P2Name : humanMatch.P1Name;
+                var beaten = state.Survivors.FirstOrDefault(p => p.Name == beatenName && !p.IsHuman);
+                if (beaten != null)
+                {
+                    int roundSize = RoundSizeFromName(state.History[^1].RoundName);
+                    state.ReachedRound[beaten.Id] = roundSize;
+                }
                 state.Survivors.RemoveAll(p => p.Name == beatenName && !p.IsHuman);
 
                 // El humano se une a los supervivientes de esta ronda (evitando duplicados)

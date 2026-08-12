@@ -10,6 +10,8 @@ import 'widgets/settings_section.dart';
 import 'widgets/settings_tile.dart';
 import '../providers/user_resources_provider.dart';
 import '../providers/player_provider.dart';
+import '../models/tournament_bracket_models.dart';
+import 'season_end_screen.dart';
 
 class SettingsScreen extends ConsumerStatefulWidget {
   const SettingsScreen({super.key});
@@ -43,7 +45,32 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       ); // dinero y descansos (recompensas del auto-resuelto)
       ref.invalidate(playerProvider); // atributos y último partido del jugador
 
-      if (mounted) _showResultDialog(result);
+      if (!mounted) return;
+
+      if (result['endSeason'] != null) {
+        // Fin de temporada: mostrar la pantalla especial de celebración
+        final seasonResult = SeasonEndResult.fromJson(
+          result['endSeason'] as Map<String, dynamic>,
+        );
+        Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (_) => SeasonEndScreen(
+              result: seasonResult,
+              onContinue: () {
+                Navigator.of(context).pop();
+                // Refrescar todo tras la nueva temporada
+                ref.invalidate(tournamentProvider);
+                ref.invalidate(leagueProvider);
+                ref.invalidate(tournamentFlowProvider);
+                ref.invalidate(playerProvider);
+                ref.invalidate(userDataProvider);
+              },
+            ),
+          ),
+        );
+      } else {
+        _showResultDialog(result);
+      }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(
