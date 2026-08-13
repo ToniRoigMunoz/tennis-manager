@@ -100,6 +100,9 @@ namespace TennisApi
                 Id = "season-2026-01",
                 SeasonId = "season-2026-01",
                 CurrentDay = 1,
+                CurrentDayStartUtc = DateTime.UtcNow.ToString("o"),
+                DevTimeOffsetSeconds = 0,
+                RoundIntervalMinutes = 120,
                 TotalDays = 28,
                 Tournaments =
                 [

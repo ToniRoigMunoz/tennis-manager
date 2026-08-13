@@ -94,10 +94,12 @@ namespace TennisApi
                     endSeasonSummary = await EndSeason.Run(cosmos, userId);
                     season.CurrentDay = 1;
                     season.SeasonNumber = (season.SeasonNumber <= 0 ? 1 : season.SeasonNumber) + 1;
+                    season.CurrentDayStartUtc = ServerClock.EffectiveNow(season).ToString("o");
                 }
                 else
                 {
                     season.CurrentDay++;
+                    season.CurrentDayStartUtc = ServerClock.EffectiveNow(season).ToString("o");
                 }
                 await toursContainer.UpsertItemAsync(season, new PartitionKey(user.SeasonId));
 

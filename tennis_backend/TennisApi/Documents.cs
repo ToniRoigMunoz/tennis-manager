@@ -102,6 +102,9 @@ namespace TennisApi
         [JsonPropertyName("totalDays")]   public int TotalDays { get; set; }
         [JsonPropertyName("tournaments")] public List<TournamentEntry> Tournaments { get; set; } = [];
         [JsonPropertyName("seasonNumber")] public int SeasonNumber { get; set; } = 1;
+        [JsonPropertyName("currentDayStartUtc")] public string CurrentDayStartUtc { get; set; } = "";
+        [JsonPropertyName("devTimeOffsetSeconds")] public long DevTimeOffsetSeconds { get; set; }
+        [JsonPropertyName("roundIntervalMinutes")] public int RoundIntervalMinutes { get; set; } = 120;
     }
 
     public class TournamentEntry
