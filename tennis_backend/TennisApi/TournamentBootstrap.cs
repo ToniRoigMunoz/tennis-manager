@@ -112,7 +112,7 @@ namespace TennisApi
                 status = "humanPlays",
                 tournamentName = state.TournamentName,
                 surface = state.Surface,
-                roundName,
+                roundName = ServerClock.RoundNameByIndex(state.HumanRoundIndex),
                 opponent = new { opponent.Id, opponent.Name, opponent.Overall },
                 seed = state.Seed,
             };
