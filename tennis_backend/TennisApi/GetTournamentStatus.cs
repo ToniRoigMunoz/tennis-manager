@@ -78,7 +78,7 @@ namespace TennisApi
                         {
                             status = "waitingForRound",
                             tournamentName = state.TournamentName,
-                            roundName = state.History.Count > 0 ? state.History[^1].RoundName : "Ronda",
+                            roundName = ServerClock.RoundNameByIndex(state.HumanRoundIndex),
                             unlockUtc = ServerClock.RoundUnlockTime(season, humanRound).ToString("o"),
                             currentRound = humanRound,
                         };
@@ -97,7 +97,7 @@ namespace TennisApi
                             status = "humanPlays",
                             tournamentName = state.TournamentName,
                             surface = state.Surface,
-                            roundName = state.History.Count > 0 ? state.History[^1].RoundName : "Ronda",
+                            roundName = ServerClock.RoundNameByIndex(state.HumanRoundIndex),
                             opponent = new
                             {
                                 id = opponent?.Id ?? "unknown",

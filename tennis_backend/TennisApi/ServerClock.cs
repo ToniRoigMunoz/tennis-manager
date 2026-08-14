@@ -35,5 +35,17 @@ namespace TennisApi
         // ¿Se ha cerrado ya la ventana de una ronda? (para simular lo no jugado)
         public static bool IsRoundClosed(TournamentDocument season, int round)
             => EffectiveNow(season) >= RoundUnlockTime(season, round + 1);
+
+        // Nombre de la ronda por su índice (1..5) en un cuadro de 24 con byes.
+        // Evita la colisión de "Octavos" en rondas 1 y 2 (ambas con 16 jugadores).
+        public static string RoundNameByIndex(int roundIndex) => roundIndex switch
+        {
+            1 => "Primera ronda",
+            2 => "Octavos de final",
+            3 => "Cuartos de final",
+            4 => "Semifinales",
+            5 => "Final",
+            _ => $"Ronda {roundIndex}",
+        };
     }
 }
