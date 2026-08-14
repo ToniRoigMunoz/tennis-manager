@@ -56,6 +56,7 @@ namespace TennisApi
             if (humanMatch != null)
             {
                 var opponent = humanMatch.Player1!.IsHuman ? humanMatch.Player2! : humanMatch.Player1!;
+                state.HumanRoundIndex = state.History.Count;
                 payload = HumanPlaysPayload(state, opponent, TournamentBracket.RoundName(playing.Count));
             }
             else
@@ -98,6 +99,7 @@ namespace TennisApi
                 {
                     var opponent = humanMatch.Player1!.IsHuman ? humanMatch.Player2! : humanMatch.Player1!;
                     state.Survivors = advancing;
+                    state.HumanRoundIndex = state.History.Count;
                     return HumanPlaysPayload(state, opponent, TournamentBracket.RoundName(playersInThisRound));
                 }
                 state.Survivors = advancing;

@@ -23,6 +23,7 @@ namespace TennisApi
         // Cuántas rondas alcanzó cada participante (para repartir puntos al final)
         [JsonPropertyName("reachedRound")] public Dictionary<string, int> ReachedRound { get; set; } = [];
         [JsonPropertyName("category")] public string Category { get; set; } = "t250";
+        [JsonPropertyName("humanRoundIndex")] public int HumanRoundIndex { get; set; } = 1;
     }
 
     public class RoundRecord

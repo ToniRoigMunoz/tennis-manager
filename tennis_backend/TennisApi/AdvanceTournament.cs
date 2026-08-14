@@ -156,6 +156,7 @@ namespace TennisApi
                     {
                         var opp = nextHumanMatch.Player1!.IsHuman ? nextHumanMatch.Player2! : nextHumanMatch.Player1!;
                         state.Survivors = advancing; // pendiente de sumar al humano tras su próximo partido
+                        state.HumanRoundIndex = state.History.Count;
                         result = new
                         {
                             status = "humanPlays",
