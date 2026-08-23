@@ -39,13 +39,27 @@ namespace TennisApi
                 int botsRewarded = 0;
                 string? distributionNote = null;
 
-                // 3. Si el torneo del día no está terminado, auto-resolverlo antes de repartir
+                // Si el torneo del día no está terminado, resolverlo automáticamente (el humano no terminó de jugarlo)
                 if (state != null && !state.Finished)
                 {
-                    await AutoResolveHumanTournament(state);
-                    // Persistir el estado ya terminado
+                    if (state.HumanAlive)
+                    {
+                        // El humano seguía vivo pero no terminó: simular su recorrido
+                        await AutoResolveHumanTournament(state);
+                    }
+                    else
+                    {
+                        // El humano ya cayó: resolver el cuadro restante de bots
+                        await RehydrateSims(state);
+                        var (champion, reached, history) = TournamentOrchestrator.ResolveRemainingFully(
+                            state.Survivors, state.Seed + 50000, state.ReachedRound);
+                        state.ReachedRound = reached;
+                        state.History.AddRange(history);
+                        state.Finished = true;
+                        state.ChampionId = champion.Id;
+                    }
                     await atContainer.UpsertItemAsync(state, new PartitionKey(userId));
-                    distributionNote = "El jugador no terminó su torneo; el servidor lo resolvió automáticamente.";
+                    distributionNote = "Torneo del día resuelto al avanzar.";
                 }
 
                 // 4. Repartir puntos a la liga del humano

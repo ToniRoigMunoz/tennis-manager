@@ -43,7 +43,7 @@ namespace TennisApi
                 }
 
                 // 2b. Si el torneo del día ya terminó, NO creamos otro: "ya jugaste hoy"
-                if (state.Finished)
+                if (state.Finished || !state.HumanAlive)
                 {
                     var doneResult = await SeasonDayDonePayload(state);
                     var resDone = req.CreateResponse(HttpStatusCode.OK);

@@ -34,6 +34,11 @@ namespace TennisApi
             if (state.Finished)
                 return req.CreateResponse(HttpStatusCode.Conflict);
 
+            // Cargar la temporada para el reloj
+            var toursC = cosmos.GetContainer("TennisManagerDB", "tournaments");
+            var season = (await toursC.ReadItemAsync<TournamentDocument>(
+                "season-2026-01", new PartitionKey("season-2026-01"))).Resource;
+
             await RehydrateSims(state);
 
             // 1. Localizar al humano y su partido pendiente en la ronda actual
@@ -88,18 +93,11 @@ namespace TennisApi
             }
 
             // 3. Decidir el siguiente paso
-            object result;
+            object result = new { status = "error", message = "Estado no resuelto" };
             if (!state.HumanAlive)
             {
-                // El humano cayó: resolvemos el resto del torneo de golpe
-                var (champion, reached, history) = TournamentOrchestrator.ResolveRemainingFully(
-                    state.Survivors, state.Seed + 50000, state.ReachedRound);
-
-                state.ReachedRound = reached;
-                state.History.AddRange(history);
-                state.Finished = true;
-                state.ChampionId = champion.Id;
-
+                // El humano cayó: NO resolvemos el resto del cuadro (se hará al avanzar el día).
+                // Solo aplicamos SUS recompensas y marcamos que su torneo acabó por hoy.
                 var rewards = await ApplyHumanRewards(state, isChampion: false);
 
                 result = new
@@ -107,7 +105,7 @@ namespace TennisApi
                     status = "finished",
                     humanWonTournament = false,
                     humanEliminatedRound = state.HumanEliminatedRound,
-                    championName = champion.Name,
+                    championName = (string?)null, // aún no se conoce; el cuadro se resuelve luego
                     history = state.History,
                     rewards,
                 };
@@ -152,26 +150,39 @@ namespace TennisApi
                         state.ReachedRound[loser.Id] = state.Survivors.Count;
                     }
 
-                    if (nextHumanMatch != null)
+                                        if (nextHumanMatch != null)
                     {
                         var opp = nextHumanMatch.Player1!.IsHuman ? nextHumanMatch.Player2! : nextHumanMatch.Player1!;
-                        state.Survivors = advancing; // pendiente de sumar al humano tras su próximo partido
-                        state.HumanRoundIndex = state.History.Count;
-                        result = new
-                        {
-                            status = "humanPlays",
-                            tournamentName = state.TournamentName,
-                            surface = state.Surface,
-                            roundName = TournamentBracket.RoundName(playersInThisRound),
-                            opponent = new { opp.Id, opp.Name, opp.Overall },
-                            history = state.History,
-                        };
-                    }
-                    else
-                    {
-                        // No debería pasar si el humano sigue vivo, pero por seguridad
                         state.Survivors = advancing;
-                        result = new { status = "error", message = "Estado inconsistente" };
+                        state.HumanRoundIndex = state.History.Count;
+
+                        // ★ Gating por reloj: ¿está abierta la ventana de la siguiente ronda?
+                        int clockRound = ServerClock.CurrentUnlockedRound(season);
+                        if (clockRound < state.HumanRoundIndex)
+                        {
+                            // Aún no toca: el humano debe esperar a la siguiente ventana
+                            result = new
+                            {
+                                status = "waitingForRound",
+                                tournamentName = state.TournamentName,
+                                roundName = ServerClock.RoundNameByIndex(state.HumanRoundIndex),
+                                unlockUtc = ServerClock.RoundUnlockTime(season, state.HumanRoundIndex).ToString("o"),
+                                history = state.History,
+                            };
+                        }
+                        else
+                        {
+                            // La ventana ya está abierta: puede jugar ya
+                            result = new
+                            {
+                                status = "humanPlays",
+                                tournamentName = state.TournamentName,
+                                surface = state.Surface,
+                                roundName = ServerClock.RoundNameByIndex(state.HumanRoundIndex),
+                                opponent = new { opp.Id, opp.Name, opp.Overall },
+                                history = state.History,
+                            };
+                        }
                     }
                 }
             }
