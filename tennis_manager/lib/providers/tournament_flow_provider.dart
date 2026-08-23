@@ -10,6 +10,8 @@ class TournamentFlowState {
 
   bool get canPlay => step.humanPlays && step.opponent != null;
   bool get isFinished => step.isFinished;
+  bool get isWaiting => step.isWaitingForRound;
+  bool get isNoMatch => step.isNoPendingMatch;
 }
 
 class TournamentFlowNotifier extends AsyncNotifier<TournamentFlowState> {

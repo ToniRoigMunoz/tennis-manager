@@ -4,6 +4,7 @@ class TournamentStep {
   final String? tournamentName;
   final String? surface;
   final String? roundName;
+  final String? unlockUtc; // hora UTC de desbloqueo (solo en waitingForRound)
   final TournamentOpponent? opponent;
 
   // Solo cuando status == "finished"
@@ -18,6 +19,7 @@ class TournamentStep {
     this.tournamentName,
     this.surface,
     this.roundName,
+    this.unlockUtc,
     this.opponent,
     this.humanWonTournament,
     this.humanEliminatedRound,
@@ -28,12 +30,21 @@ class TournamentStep {
 
   bool get isFinished => status == 'finished';
   bool get humanPlays => status == 'humanPlays';
+  bool get isWaitingForRound => status == 'waitingForRound';
+  bool get isNoPendingMatch => status == 'noPendingMatch';
+
+  // Hora de desbloqueo convertida a la zona horaria local del dispositivo
+  DateTime? get unlockLocalTime {
+    if (unlockUtc == null) return null;
+    return DateTime.parse(unlockUtc!).toLocal();
+  }
 
   factory TournamentStep.fromJson(Map<String, dynamic> json) => TournamentStep(
     status: json['status'] as String,
     tournamentName: json['tournamentName'] as String?,
     surface: json['surface'] as String?,
     roundName: json['roundName'] as String?,
+    unlockUtc: json['unlockUtc'] as String?,
     opponent: json['opponent'] != null
         ? TournamentOpponent.fromJson(json['opponent'] as Map<String, dynamic>)
         : null,
