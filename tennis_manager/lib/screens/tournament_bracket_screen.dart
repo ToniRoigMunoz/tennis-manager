@@ -35,7 +35,7 @@ class TournamentBracketScreen extends StatelessWidget {
               itemCount: step.history.length,
               itemBuilder: (context, index) {
                 final round = step.history[index];
-                return _RoundBlock(round: round);
+                return _RoundBlock(round: round, roundIndex: index);
               },
             ),
           ),
@@ -112,7 +112,26 @@ class _FinishedBanner extends StatelessWidget {
 
 class _RoundBlock extends StatelessWidget {
   final BracketRound round;
-  const _RoundBlock({required this.round});
+  final int roundIndex;
+  const _RoundBlock({required this.round, required this.roundIndex});
+
+  // Nombre correcto por índice (evita "Ronda de 21")
+  String get _roundName {
+    switch (roundIndex) {
+      case 0:
+        return 'Primera ronda';
+      case 1:
+        return 'Octavos de final';
+      case 2:
+        return 'Cuartos de final';
+      case 3:
+        return 'Semifinales';
+      case 4:
+        return 'Final';
+      default:
+        return round.roundName;
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -123,7 +142,7 @@ class _RoundBlock extends StatelessWidget {
         Padding(
           padding: const EdgeInsets.only(left: 4, top: 8, bottom: 8),
           child: Text(
-            round.roundName.toUpperCase(),
+            _roundName.toUpperCase(),
             style: TextStyle(
               fontSize: 11,
               fontWeight: FontWeight.bold,

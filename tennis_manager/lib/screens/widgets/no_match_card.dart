@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 
 class NoMatchCard extends StatelessWidget {
-  const NoMatchCard({super.key});
+  final String? nextTournamentName;
+  const NoMatchCard({super.key, this.nextTournamentName});
 
   @override
   Widget build(BuildContext context) {
@@ -26,7 +27,7 @@ class NoMatchCard extends StatelessWidget {
             ),
             const SizedBox(height: 12),
             Text(
-              'No tienes partidos hoy',
+              'Ya has competido hoy',
               style: TextStyle(
                 fontWeight: FontWeight.bold,
                 fontSize: 16,
@@ -35,7 +36,9 @@ class NoMatchCard extends StatelessWidget {
             ),
             const SizedBox(height: 4),
             Text(
-              'Tu próximo torneo llegará pronto',
+              nextTournamentName != null
+                  ? 'Mañana: ${nextTournamentName!}'
+                  : 'Tu próximo torneo llegará pronto',
               style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant),
             ),
           ],

@@ -13,6 +13,7 @@ class TournamentStep {
   final String? championName;
   final TournamentRewards? rewards;
   final List<BracketRound> history;
+  final String? nextTournamentName; // en seasonDayDone
 
   const TournamentStep({
     required this.status,
@@ -26,12 +27,14 @@ class TournamentStep {
     this.championName,
     this.rewards,
     this.history = const [],
+    this.nextTournamentName,
   });
 
   bool get isFinished => status == 'finished';
   bool get humanPlays => status == 'humanPlays';
   bool get isWaitingForRound => status == 'waitingForRound';
   bool get isNoPendingMatch => status == 'noPendingMatch';
+  bool get isSeasonDayDone => status == 'seasonDayDone';
 
   // Hora de desbloqueo convertida a la zona horaria local del dispositivo
   DateTime? get unlockLocalTime {
@@ -59,6 +62,7 @@ class TournamentStep {
             ?.map((e) => BracketRound.fromJson(e as Map<String, dynamic>))
             .toList() ??
         const [],
+    nextTournamentName: json['nextTournamentName'] as String?,
   );
 }
 

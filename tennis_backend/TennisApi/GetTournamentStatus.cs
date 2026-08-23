@@ -32,14 +32,24 @@ namespace TennisApi
                     state = null; // no hay torneo, lo crearemos abajo
                 }
 
-                // 2. Si no existe, o el que existe ya terminó, creamos el torneo del día
-                if (state == null || state.Finished)
+                                // 2a. Si no existe torneo, creamos el del día
+                if (state == null)
                 {
                     var payload = await TournamentBootstrap.CreateDailyTournament(cosmos, userId);
                     var resNew = req.CreateResponse(HttpStatusCode.OK);
                     resNew.Headers.Add("Content-Type", "application/json");
                     await resNew.WriteStringAsync(JsonSerializer.Serialize(payload, Opts));
                     return resNew;
+                }
+
+                // 2b. Si el torneo del día ya terminó, NO creamos otro: "ya jugaste hoy"
+                if (state.Finished)
+                {
+                    var doneResult = await SeasonDayDonePayload(state);
+                    var resDone = req.CreateResponse(HttpStatusCode.OK);
+                    resDone.Headers.Add("Content-Type", "application/json");
+                    await resDone.WriteStringAsync(JsonSerializer.Serialize(doneResult, Opts));
+                    return resDone;
                 }
 
                 // ★ NUEVO: cargar la temporada para consultar el reloj
@@ -271,5 +281,28 @@ namespace TennisApi
             "Octavos de final" => 16,
             _ => 16,
         };
+
+                // Payload para "ya jugaste hoy": indica el torneo de mañana
+        private async Task<object> SeasonDayDonePayload(ActiveTournamentDoc state)
+        {
+            string nextTournamentName = "Próximo torneo";
+            try
+            {
+                var toursC = cosmos.GetContainer("TennisManagerDB", "tournaments");
+                var season = (await toursC.ReadItemAsync<TournamentDocument>(
+                    "season-2026-01", new PartitionKey("season-2026-01"))).Resource;
+                var next = season.Tournaments.FirstOrDefault(t => t.StartDay == season.CurrentDay + 1)
+                           ?? season.Tournaments.FirstOrDefault(t => t.StartDay == season.CurrentDay);
+                if (next != null) nextTournamentName = next.Name;
+            }
+            catch { /* si falla, usamos el texto por defecto */ }
+
+            return new
+            {
+                status = "seasonDayDone",
+                todayTournamentName = state.TournamentName,
+                nextTournamentName,
+            };
+        }
     }
 }
