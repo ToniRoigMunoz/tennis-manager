@@ -12,6 +12,7 @@ import 'widgets/upcoming_tournaments_strip.dart';
 import 'widgets/error_view.dart';
 import 'match_screen.dart';
 import '../providers/user_resources_provider.dart';
+import 'widgets/waiting_round_card.dart';
 
 class GeneralScreen extends ConsumerWidget {
   final VoidCallback onRankingTap;
@@ -89,6 +90,8 @@ class GeneralScreen extends ConsumerWidget {
               ref.invalidate(userDataProvider);
             },
           );
+        } else if (flow != null && flow.step.isWaitingForRound) {
+          topCard = WaitingRoundCard(step: flow.step);
         } else if (flow != null && flow.step.isSeasonDayDone) {
           topCard = NoMatchCard(
             nextTournamentName: flow.step.nextTournamentName,

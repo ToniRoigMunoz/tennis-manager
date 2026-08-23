@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:tennis_manager/providers/user_resources_provider.dart';
 import '../config.dart';
 import '../models/match_models.dart';
 import '../providers/match_playback.dart';
@@ -107,6 +108,9 @@ class _MatchScreenState extends ConsumerState<MatchScreen> {
                 step: step,
                 onContinue: (bracketContext) {
                   Navigator.of(bracketContext).popUntil((r) => r.isFirst);
+                  ref.invalidate(tournamentFlowProvider);
+                  ref.invalidate(playerProvider);
+                  ref.invalidate(userDataProvider);
                 },
               ),
             ),

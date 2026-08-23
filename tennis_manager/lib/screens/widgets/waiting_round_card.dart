@@ -77,25 +77,21 @@ class _WaitingRoundCardState extends State<WaitingRoundCard> {
             ),
             const SizedBox(height: 12),
             Text(
-              'Has superado la ${_roundLabel(widget.step.roundName)}',
+              'Has ganado tu partido',
               style: TextStyle(fontSize: 13, color: cs.onSurfaceVariant),
             ),
-            const SizedBox(height: 4),
-            Text(
-              'Tu próximo partido',
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-                color: cs.onSurface,
-              ),
-            ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 8),
             if (unlock != null) ...[
               Text(
-                'Se desbloquea a las ${_formatLocalTime(unlock)}',
-                style: TextStyle(fontSize: 14, color: cs.onSurface),
+                'Tu próximo partido se desbloquea a las ${_formatLocalTime(unlock)}',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.bold,
+                  color: cs.onSurface,
+                ),
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: 10),
               Container(
                 padding: const EdgeInsets.symmetric(
                   horizontal: 16,
@@ -121,6 +117,4 @@ class _WaitingRoundCardState extends State<WaitingRoundCard> {
       ),
     );
   }
-
-  String _roundLabel(String? name) => (name ?? 'ronda').toLowerCase();
 }
