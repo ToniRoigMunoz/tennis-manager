@@ -24,6 +24,9 @@ namespace TennisApi
         [JsonPropertyName("reachedRound")] public Dictionary<string, int> ReachedRound { get; set; } = [];
         [JsonPropertyName("category")] public string Category { get; set; } = "t250";
         [JsonPropertyName("humanRoundIndex")] public int HumanRoundIndex { get; set; } = 1;
+
+        // Multi-humano.
+        [JsonPropertyName("humanStates")] public Dictionary<string, HumanTournamentState> HumanStates { get; set; } = [];
     }
 
     public class RoundRecord
@@ -40,5 +43,14 @@ namespace TennisApi
         [JsonPropertyName("winnerName")] public string WinnerName { get; set; } = "";
         [JsonPropertyName("setsScore")] public string SetsScore { get; set; } = "";
         [JsonPropertyName("involvesHuman")] public bool InvolvesHuman { get; set; }
+    }
+
+    // Estado de un humano dentro del torneo (para multi-humano). De momento se rellena en paralelo a los campos singulares, sin usarse aún.
+    public class HumanTournamentState
+    {
+        [JsonPropertyName("userId")]           public string UserId { get; set; } = "";
+        [JsonPropertyName("alive")]            public bool Alive { get; set; } = true;
+        [JsonPropertyName("eliminatedRound")]  public int EliminatedRound { get; set; } = -1;
+        [JsonPropertyName("roundIndex")]       public int RoundIndex { get; set; } = 1;
     }
 }

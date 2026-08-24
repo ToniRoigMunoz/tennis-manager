@@ -42,6 +42,10 @@ namespace TennisApi
                 ReachedRound = [],
                 History = [],
                 Category = todayTournament.Category,
+                HumanStates = new Dictionary<string, HumanTournamentState>
+                {
+                    [userId] = new HumanTournamentState { UserId = userId, Alive = true, RoundIndex = 1 }
+                },
             };
 
             RecordRound(state, matches, TournamentBracket.RoundName(playing.Count));
@@ -57,6 +61,10 @@ namespace TennisApi
             {
                 var opponent = humanMatch.Player1!.IsHuman ? humanMatch.Player2! : humanMatch.Player1!;
                 state.HumanRoundIndex = state.History.Count;
+                if (state.HumanStates.TryGetValue(userId, out var hs)) 
+                {
+                    hs.RoundIndex = state.History.Count;
+                }
                 payload = HumanPlaysPayload(state, opponent, TournamentBracket.RoundName(playing.Count));
             }
             else
@@ -100,6 +108,10 @@ namespace TennisApi
                     var opponent = humanMatch.Player1!.IsHuman ? humanMatch.Player2! : humanMatch.Player1!;
                     state.Survivors = advancing;
                     state.HumanRoundIndex = state.History.Count;
+                    if (state.HumanStates.TryGetValue(state.UserId, out var hs)) 
+                    {
+                        hs.RoundIndex = state.History.Count;
+                    }
                     return HumanPlaysPayload(state, opponent, TournamentBracket.RoundName(playersInThisRound));
                 }
                 state.Survivors = advancing;

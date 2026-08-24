@@ -217,6 +217,11 @@ namespace TennisApi
                 state.ReachedRound[state.UserId] = RoundSizeFromName(lastRound.RoundName);
                 state.HumanAlive = false;
                 state.HumanEliminatedRound = RoundSizeFromName(lastRound.RoundName);
+                if (state.HumanStates.TryGetValue(state.UserId, out var hsLost))
+                {
+                    hsLost.Alive = false;
+                    hsLost.EliminatedRound = RoundSizeFromName(lastRound.RoundName);
+                }
                 if (!state.Survivors.Any(p => p.Id == opponent.Id)) state.Survivors.Add(opponent);
             }
 
@@ -251,6 +256,10 @@ namespace TennisApi
                 }
                 state.Survivors = advancing;
                 state.HumanRoundIndex = state.History.Count; // la nueva ronda pendiente
+                if (state.HumanStates.TryGetValue(state.UserId, out var hsNext)) 
+                {
+                    hsNext.RoundIndex = state.History.Count;
+                }
             }
         }
 

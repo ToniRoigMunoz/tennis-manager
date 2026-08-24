@@ -85,6 +85,11 @@ namespace TennisApi
                 var playersThisRound = state.Survivors.Count + 1; // +1 por el propio humano que sale
                 state.ReachedRound[state.UserId] = RoundSizeFromName(lastRound.RoundName);
                 state.HumanAlive = false;
+                if (state.HumanStates.TryGetValue(state.UserId, out var hsLost))
+                {
+                    hsLost.Alive = false;
+                    hsLost.EliminatedRound = RoundSizeFromName(lastRound.RoundName);
+                }
                 state.HumanEliminatedRound = RoundSizeFromName(lastRound.RoundName);
 
                 // Añadir al rival que venció al humano a los supervivientes
@@ -153,6 +158,10 @@ namespace TennisApi
                         var opp = nextHumanMatch.Player1!.IsHuman ? nextHumanMatch.Player2! : nextHumanMatch.Player1!;
                         state.Survivors = advancing;
                         state.HumanRoundIndex = state.History.Count;
+                        if (state.HumanStates.TryGetValue(state.UserId, out var hsNext)) 
+                        {
+                            hsNext.RoundIndex = state.History.Count;
+                        }
 
                         // Gating por reloj: ¿está abierta la ventana de la siguiente ronda?
                         int clockRound = ServerClock.CurrentUnlockedRound(season);
