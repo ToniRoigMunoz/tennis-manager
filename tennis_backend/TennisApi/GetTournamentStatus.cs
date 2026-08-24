@@ -46,7 +46,7 @@ namespace TennisApi
                 }
 
                 // Si el torneo del día ya terminó, no creamos otro
-                if (state.Finished || !state.HumanAlive)
+                if (state.Finished || !state.IsAlive(userId))
                 {
                     var doneResult = await SeasonDayDonePayload(state);
                     var resDone = req.CreateResponse(HttpStatusCode.OK);
@@ -82,7 +82,7 @@ namespace TennisApi
                 {
                     // Gating por reloj
                     int clockRound = ServerClock.CurrentUnlockedRound(season);
-                    int humanRound = state.HumanRoundIndex;
+                    int humanRound = state.RoundIndexOf(userId);
 
                     if (clockRound < humanRound)
                     {
@@ -91,7 +91,7 @@ namespace TennisApi
                         {
                             status = "waitingForRound",
                             tournamentName = state.TournamentName,
-                            roundName = ServerClock.RoundNameByIndex(state.HumanRoundIndex),
+                            roundName = ServerClock.RoundNameByIndex(state.RoundIndexOf(userId)),
                             unlockUtc = ServerClock.RoundUnlockTime(season, humanRound).ToString("o"),
                             currentRound = humanRound,
                         };
@@ -110,7 +110,7 @@ namespace TennisApi
                             status = "humanPlays",
                             tournamentName = state.TournamentName,
                             surface = state.Surface,
-                            roundName = ServerClock.RoundNameByIndex(state.HumanRoundIndex),
+                            roundName = ServerClock.RoundNameByIndex(state.RoundIndexOf(userId)),
                             opponent = new
                             {
                                 id = opponent?.Id ?? "unknown",
@@ -149,7 +149,7 @@ namespace TennisApi
                 var pending = FindPendingHumanMatch(state);
                 if (pending == null) break;
 
-                int humanRound = state.HumanRoundIndex;
+                int humanRound = state.RoundIndexOf(state.UserId);
                 // Si la ventana de esta ronda NO se ha cerrado aún, no hay nada que simular
                 if (ServerClock.CurrentUnlockedRound(season) <= humanRound) break;
 

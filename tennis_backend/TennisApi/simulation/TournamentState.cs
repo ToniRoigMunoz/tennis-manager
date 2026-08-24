@@ -27,6 +27,20 @@ namespace TennisApi
 
         // Multi-humano.
         [JsonPropertyName("humanStates")] public Dictionary<string, HumanTournamentState> HumanStates { get; set; } = [];
+
+        // Ronda (ventana) de un humano concreto. Lee del diccionario multi-humano. Si no estuviera, cae al campo singular viejo (seguridad durante la transición).
+        public int RoundIndexOf(string userId)
+        {
+            if (HumanStates.TryGetValue(userId, out var hs)) return hs.RoundIndex;
+            return HumanRoundIndex;
+        }
+
+        // ¿Sigue vivo un humano concreto? Lee del diccionario; respaldo al campo viejo.
+        public bool IsAlive(string userId)
+        {
+            if (HumanStates.TryGetValue(userId, out var hs)) return hs.Alive;
+            return HumanAlive;
+        }
     }
 
     public class RoundRecord

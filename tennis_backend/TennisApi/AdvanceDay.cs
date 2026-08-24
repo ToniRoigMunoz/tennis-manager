@@ -42,7 +42,7 @@ namespace TennisApi
                 // Si el torneo del día no está terminado, resolverlo automáticamente (el humano no terminó de jugarlo)
                 if (state != null && !state.Finished)
                 {
-                    if (state.HumanAlive)
+                    if (state.IsAlive(state.UserId))
                     {
                         // El humano seguía vivo pero no terminó: simular su recorrido
                         await AutoResolveHumanTournament(state);
