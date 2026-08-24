@@ -12,11 +12,12 @@ namespace TennisApi
             [HttpTrigger(AuthorizationLevel.Anonymous, "post")] HttpRequestData req)
         {
             var userId = req.Query["userId"] ?? "demo-user-001";
-            var atContainer = cosmos.GetContainer("TennisManagerDB", "activeTournaments");
+            var atContainer = cosmos.GetContainer("TennisManagerDB", "activeLeagueTournaments");
+            var leagueId = await LeagueLookup.GetLeagueId(cosmos, userId);
 
             try
             {
-                await atContainer.DeleteItemAsync<ActiveTournamentDoc>(userId, new PartitionKey(userId));
+                await atContainer.DeleteItemAsync<ActiveTournamentDoc>(leagueId, new PartitionKey(leagueId));
             }
             catch (CosmosException) { /* no existía, sin problema */ }
 

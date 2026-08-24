@@ -20,16 +20,16 @@ namespace TennisApi
                 var userId = req.Query["userId"] ?? "demo-user-001";
                 var sw = Stopwatch.StartNew();
 
-                // 1. Cargar usuario → liga y temporada
+                // Cargar usuario, liga y temporada
                 var usersContainer = cosmos.GetContainer("TennisManagerDB", "users");
                 var user = (await usersContainer.ReadItemAsync<UserDocument>(userId, new PartitionKey(userId))).Resource;
 
-                // 2. Cargar el torneo activo del día (el que jugó el humano)
-                var atContainer = cosmos.GetContainer("TennisManagerDB", "activeTournaments");
+                // Cargar el torneo activo del día (el que jugó el humano)
+                var atContainer = cosmos.GetContainer("TennisManagerDB", "activeLeagueTournaments");
                 ActiveTournamentDoc? state = null;
                 try
                 {
-                    state = (await atContainer.ReadItemAsync<ActiveTournamentDoc>(userId, new PartitionKey(userId))).Resource;
+                    state = (await atContainer.ReadItemAsync<ActiveTournamentDoc>(user.LeagueId, new PartitionKey(user.LeagueId))).Resource;
                 }
                 catch (CosmosException ex) when (ex.StatusCode == HttpStatusCode.NotFound)
                 {
@@ -58,19 +58,18 @@ namespace TennisApi
                         state.Finished = true;
                         state.ChampionId = champion.Id;
                     }
-                    await atContainer.UpsertItemAsync(state, new PartitionKey(userId));
+                    await atContainer.UpsertItemAsync(state, new PartitionKey(user.LeagueId));
                     distributionNote = "Torneo del día resuelto al avanzar.";
                 }
 
-                // 4. Repartir puntos a la liga del humano
+                // Repartir puntos a la liga del humano
                 if (state != null && state.Finished)
                 {
                     botsRewarded = await DistributeBotRewards(state);
                 }
                 else if (state == null)
                 {
-                    // No había torneo activo: resolvemos la liga del humano en headless,
-                    // aplicándole SUS recompensas según hasta dónde llegue.
+                    // No había torneo activo, entonces resolvemos la liga del humano aplicándole sus recompensas según hasta dónde llegue.
                     var catForHuman = await GetTodayCategory(user.SeasonId);
                     var (botsR, humanRound) = await HeadlessLeagueResolver.ResolveDailyTournament(
                         cosmos, user.LeagueId, catForHuman, Random.Shared.Next(),
@@ -79,7 +78,7 @@ namespace TennisApi
                     distributionNote = $"El jugador no abrió la app; su torneo se resolvió solo (llegó a ronda de {humanRound}).";
                 }
 
-                // 5. Resolver el torneo diario de las otras ligas (sin humano)
+                // Resolver el torneo diario de las otras ligas (sin humano)
                 var category = state?.Category ?? "t250";
                 // Categoría del torneo de hoy (para que todas las ligas usen la misma)
                 var toursForCat = cosmos.GetContainer("TennisManagerDB", "tournaments");
@@ -96,7 +95,7 @@ namespace TennisApi
                     otherLeaguesResolved++;
                 }
 
-                // 6. Incrementar el día de la temporada
+                // Incrementar el día de la temporada
                 var toursContainer = cosmos.GetContainer("TennisManagerDB", "tournaments");
                 var season = (await toursContainer.ReadItemAsync<TournamentDocument>(user.SeasonId, new PartitionKey(user.SeasonId))).Resource;
                 int previousDay = season.CurrentDay;
@@ -104,7 +103,7 @@ namespace TennisApi
 
                 if (season.CurrentDay >= season.TotalDays)
                 {
-                    // Fin de temporada: campeones, ascensos/descensos, mejora de atributos, reset
+                    // Fin de temporada, campeones, ascensos/descensos, mejora de atributos, reset
                     endSeasonSummary = await EndSeason.Run(cosmos, userId);
                     season.CurrentDay = 1;
                     season.SeasonNumber = (season.SeasonNumber <= 0 ? 1 : season.SeasonNumber) + 1;
@@ -117,12 +116,12 @@ namespace TennisApi
                 }
                 await toursContainer.UpsertItemAsync(season, new PartitionKey(user.SeasonId));
 
-                // 7. Limpiar el torneo del día (para que mañana se cree uno nuevo)
+                // Limpiar el torneo del día (para que mañana se cree uno nuevo)
                 if (state != null)
                 {
                     try
                     {
-                        await atContainer.DeleteItemAsync<ActiveTournamentDoc>(userId, new PartitionKey(userId));
+                        await atContainer.DeleteItemAsync<ActiveTournamentDoc>(user.LeagueId, new PartitionKey(user.LeagueId));
                     }
                     catch (CosmosException) { /* ya no existe, sin problema */ }
                 }
@@ -155,8 +154,7 @@ namespace TennisApi
             }
         }
 
-        // Reparte puntos (y mejora de atributos al campeón) a los bots de la liga,
-        // según la ronda que alcanzó cada uno en el torneo del día. Recalcula la clasificación.
+        // Reparte puntos (y mejora de atributos al campeón) a los bots de la liga, según la ronda que alcanzó cada uno en el torneo del día. Recalcula la clasificación.
         private async Task<int> DistributeBotRewards(ActiveTournamentDoc state)
         {
             var leaguesContainer = cosmos.GetContainer("TennisManagerDB", "leagues");
@@ -179,14 +177,14 @@ namespace TennisApi
                 standing.Points += points;
                 rewarded++;
 
-                // Mejora de atributos SOLO al bot campeón (acumulación fraccionada, igual que el humano)
+                // Mejora de atributos solo al bot campeón (acumulación fraccionada, igual que el humano)
                 if (isChampion && champAttrGain > 0)
                 {
                     await ImproveBotAttributes(state.LeagueId, standing.BotId!, champAttrGain);
                 }
             }
 
-            // Recalcular la clasificación: ordenar por puntos y reasignar posiciones
+            // Recalcular la clasificación, ordenar por puntos y reasignar posiciones
             league.Standings.Sort((a, b) => b.Points.CompareTo(a.Points));
             for (int i = 0; i < league.Standings.Count; i++)
                 league.Standings[i].Position = i + 1;
@@ -231,8 +229,7 @@ namespace TennisApi
                 a.Value = Math.Min(a.Value + amount, 99);
         }
 
-        // Resuelve automáticamente el recorrido restante del humano cuando no terminó
-        // su torneo. Simula sus partidos pendientes hasta que el torneo acaba.
+        // Resuelve automáticamente el recorrido restante del humano cuando no terminó su torneo. Simula sus partidos pendientes hasta que el torneo acaba.
         private async Task AutoResolveHumanTournament(ActiveTournamentDoc state)
         {
             await RehydrateSims(state);
@@ -242,7 +239,7 @@ namespace TennisApi
             var human = all.FirstOrDefault(p => p.Id == state.UserId);
             if (human is null) return;
 
-            // Bucle: mientras el torneo no esté terminado, resolver el partido pendiente del humano
+            // Mientras el torneo no esté terminado, resolver el partido pendiente del humano
             int safety = 0;
             while (!state.Finished && safety++ < 20)
             {
@@ -363,8 +360,7 @@ namespace TennisApi
             _ => 16,
         };
 
-        // Aplica recompensas al humano (versión interna, sin devolver payload).
-        // Reutiliza la lógica de reparto: puntos al ranking, dinero, descansos, atributos.
+        // Aplica recompensas al humano. Reutiliza la lógica de reparto, puntos al ranking, dinero, descansos, atributos.
         private async Task ApplyHumanRewardsInternal(ActiveTournamentDoc state, bool isChampion)
         {
             int reachedRoundSize = state.ReachedRound.TryGetValue(state.UserId, out var rr) ? rr : 16;
