@@ -44,7 +44,13 @@ namespace TennisApi
                 Category = todayTournament.Category,
                 HumanStates = new Dictionary<string, HumanTournamentState>
                 {
-                    [userId] = new HumanTournamentState { UserId = userId, Alive = true, RoundIndex = 1 }
+                    [userId] = new HumanTournamentState
+                    {
+                        UserId = userId,
+                        Alive = true,
+                        RoundIndex = 1,
+                        Name = participants.FirstOrDefault(p => p.Id == userId)?.Name ?? "",
+                    }
                 },
             };
 

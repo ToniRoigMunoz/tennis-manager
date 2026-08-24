@@ -66,5 +66,6 @@ namespace TennisApi
         [JsonPropertyName("alive")]            public bool Alive { get; set; } = true;
         [JsonPropertyName("eliminatedRound")]  public int EliminatedRound { get; set; } = -1;
         [JsonPropertyName("roundIndex")]       public int RoundIndex { get; set; } = 1;
+        [JsonPropertyName("name")] public string Name { get; set; } = "";
     }
 }

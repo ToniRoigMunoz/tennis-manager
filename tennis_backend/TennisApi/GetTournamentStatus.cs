@@ -75,7 +75,8 @@ namespace TennisApi
                 }
 
                 // Hay un torneo en curso: buscar el partido pendiente del humano
-                var pendingMatch = FindPendingHumanMatch(state);
+                var humanName = HumanNameOf(state, userId);
+                var pendingMatch = FindPendingHumanMatch(state, humanName);
                 object result;
 
                 if (pendingMatch != null)
@@ -99,7 +100,7 @@ namespace TennisApi
                     else
                     {
                         // Ventana abierta: el humano puede jugar
-                        var opponentName = pendingMatch.P1Name == GetHumanName(state, userId)
+                        var opponentName = pendingMatch.P1Name == humanName
                             ? pendingMatch.P2Name
                             : pendingMatch.P1Name;
 
@@ -146,8 +147,9 @@ namespace TennisApi
             int safety = 0;
             while (!state.Finished && safety++ < 10)
             {
-                var pending = FindPendingHumanMatch(state);
-                if (pending == null) break;
+                var humanName = HumanNameOf(state, state.UserId);
+                var pendingMatch = FindPendingHumanMatch(state, humanName);
+                if (pendingMatch == null) break;
 
                 int humanRound = state.RoundIndexOf(state.UserId);
                 // Si la ventana de esta ronda NO se ha cerrado aún, no hay nada que simular
@@ -158,22 +160,21 @@ namespace TennisApi
             }
         }
 
-        // Busca en la última ronda registrada un partido del humano sin resolver
-        private static MatchRecord? FindPendingHumanMatch(ActiveTournamentDoc state)
+        // Busca el partido pendiente de UN humano concreto (por su nombre) en la última ronda
+        private static MatchRecord? FindPendingHumanMatch(ActiveTournamentDoc state, string humanName)
         {
             if (state.History.Count == 0) return null;
             var lastRound = state.History[^1];
-            return lastRound.Results.FirstOrDefault(r => r.InvolvesHuman && string.IsNullOrEmpty(r.WinnerId));
+            return lastRound.Results.FirstOrDefault(r =>
+                r.InvolvesHuman && string.IsNullOrEmpty(r.WinnerId) &&
+                (r.P1Name == humanName || r.P2Name == humanName));
         }
 
-        private static string GetHumanName(ActiveTournamentDoc state, string userId)
+        private static string HumanNameOf(ActiveTournamentDoc state, string userId)
         {
-            var human = state.Survivors.FirstOrDefault(p => p.IsHuman);
-            if (human != null) return human.Name;
-            foreach (var round in state.History)
-                foreach (var m in round.Results.Where(r => r.InvolvesHuman))
-                    return m.WinnerId == userId ? m.WinnerName : (m.P1Name);
-            return "";
+            if (state.HumanStates.TryGetValue(userId, out var hs) && !string.IsNullOrEmpty(hs.Name))
+                return hs.Name;
+            return ""; // respaldo
         }
 
         // Simula un partido pendiente del humano e integra el resultado en el cuadro.
