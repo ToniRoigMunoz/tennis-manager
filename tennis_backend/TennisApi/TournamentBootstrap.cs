@@ -29,7 +29,7 @@ namespace TennisApi
 
             var state = new ActiveTournamentDoc
             {
-                Id = userId,
+                Id = user.LeagueId,
                 UserId = userId,
                 LeagueId = user.LeagueId,
                 TournamentName = todayTournament.Name,
@@ -51,7 +51,7 @@ namespace TennisApi
                 state.ReachedRound[loser.Id] = playing.Count;
             }
 
-            // El humano puede tener bye en primera ronda: avanzar hasta su primer partido
+            // El humano puede tener bye en primera ronda entonces avanza hasta su primer partido
             object payload;
             if (humanMatch != null)
             {
@@ -64,8 +64,8 @@ namespace TennisApi
                 payload = AdvanceThroughByes(state, seed);
             }
 
-            var atContainer = cosmos.GetContainer("TennisManagerDB", "activeTournaments");
-            await atContainer.UpsertItemAsync(state, new PartitionKey(userId));
+            var atContainer = cosmos.GetContainer("TennisManagerDB", "activeLeagueTournaments");
+            await atContainer.UpsertItemAsync(state, new PartitionKey(user.LeagueId));
 
             return payload;
         }

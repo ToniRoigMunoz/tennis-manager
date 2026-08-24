@@ -27,9 +27,10 @@ namespace TennisApi
             if (payload is null || string.IsNullOrEmpty(payload.UserId))
                 return req.CreateResponse(HttpStatusCode.BadRequest);
 
-            var atContainer = cosmos.GetContainer("TennisManagerDB", "activeTournaments");
+            var atContainer = cosmos.GetContainer("TennisManagerDB", "activeLeagueTournaments");
+            var leagueId = await LeagueLookup.GetLeagueId(cosmos, payload.UserId);
             var state = (await atContainer.ReadItemAsync<ActiveTournamentDoc>(
-                payload.UserId, new PartitionKey(payload.UserId))).Resource;
+                leagueId, new PartitionKey(leagueId))).Resource;
 
             if (state.Finished)
                 return req.CreateResponse(HttpStatusCode.Conflict);
@@ -41,7 +42,7 @@ namespace TennisApi
 
             await RehydrateSims(state);
 
-            // 1. Localizar al humano y su partido pendiente en la ronda actual
+            // Localizar al humano y su partido pendiente en la ronda actual
             var lastRound = state.History[^1];
             var humanMatch = lastRound.Results.FirstOrDefault(r => r.InvolvesHuman && r.WinnerId == "");
             if (humanMatch is null)
@@ -50,7 +51,7 @@ namespace TennisApi
             var human = FindHuman(state);
             if (human is null) return req.CreateResponse(HttpStatusCode.NotFound);
 
-            // 2. Integrar el resultado del partido animado
+            // Integrar el resultado del partido animado
             var opponentName = humanMatch.P1Name == human.Name ? humanMatch.P2Name : humanMatch.P1Name;
 
             if (payload.HumanWon)
@@ -59,8 +60,7 @@ namespace TennisApi
                 humanMatch.WinnerName = human.Name;
                 humanMatch.SetsScore = payload.SetsScore;
 
-                // El rival batido no puede seguir vivo. Lo registramos en ReachedRound
-                // (cayó en la ronda actual) ANTES de quitarlo, para que reciba sus puntos.
+                // El rival batido no puede seguir vivo. Lo registramos en ReachedRound antes de quitarlo, para que reciba sus puntos.
                 var beatenName = humanMatch.P1Name == human.Name ? humanMatch.P2Name : humanMatch.P1Name;
                 var beaten = state.Survivors.FirstOrDefault(p => p.Name == beatenName && !p.IsHuman);
                 if (beaten != null)
@@ -76,7 +76,6 @@ namespace TennisApi
             }
             else
             {
-                // El humano pierde: gana el rival, que ya está resuelto de fuerza
                 var opponent = FindOpponentInSurvivorsPool(state, opponentName, human);
                 humanMatch.WinnerId = opponent?.Id ?? "opponent";
                 humanMatch.WinnerName = opponentName;
@@ -92,12 +91,12 @@ namespace TennisApi
                 if (opponent != null) state.Survivors.Add(opponent);
             }
 
-            // 3. Decidir el siguiente paso
+            // Decidir el siguiente paso
             object result = new { status = "error", message = "Estado no resuelto" };
             if (!state.HumanAlive)
             {
-                // El humano cayó: NO resolvemos el resto del cuadro (se hará al avanzar el día).
-                // Solo aplicamos SUS recompensas y marcamos que su torneo acabó por hoy.
+                // El humano cayó por lo que no resolvemos el resto del cuadro (se hará al avanzar el día).
+                // Solo aplicamos sus recompensas y marcamos que su torneo acabó por hoy.
                 var rewards = await ApplyHumanRewards(state, isChampion: false);
 
                 result = new
@@ -105,14 +104,14 @@ namespace TennisApi
                     status = "finished",
                     humanWonTournament = false,
                     humanEliminatedRound = state.HumanEliminatedRound,
-                    championName = (string?)null, // aún no se conoce; el cuadro se resuelve luego
+                    championName = (string?)null, // Aún no se conoce, el cuadro se resuelve luego
                     history = state.History,
                     rewards,
                 };
             }
             else
             {
-                // El humano sigue vivo: ¿es ya el único que queda?
+                // El humano sigue vivo, ¿es ya el único que queda?
                 if (state.Survivors.Count == 1 && state.Survivors[0].IsHuman)
                 {
                     state.Finished = true;
@@ -134,8 +133,7 @@ namespace TennisApi
                 {
                     state.CurrentRound++;
 
-                    // Nº real de jugadores en esta ronda = supervivientes vivos ahora mismo
-                    // (incluye al humano recién añadido). Se captura antes de emparejar.
+                    // Número real de jugadores en esta ronda igual a supervivientes vivos ahora mismo (incluye al humano recién añadido)
                     int playersInThisRound = state.Survivors.Count;
 
                     // Resolver la siguiente ronda saltando otra vez al humano
@@ -156,11 +154,11 @@ namespace TennisApi
                         state.Survivors = advancing;
                         state.HumanRoundIndex = state.History.Count;
 
-                        // ★ Gating por reloj: ¿está abierta la ventana de la siguiente ronda?
+                        // Gating por reloj: ¿está abierta la ventana de la siguiente ronda?
                         int clockRound = ServerClock.CurrentUnlockedRound(season);
                         if (clockRound < state.HumanRoundIndex)
                         {
-                            // Aún no toca: el humano debe esperar a la siguiente ventana
+                            // Aún no toca, el humano debe esperar a la siguiente ventana
                             result = new
                             {
                                 status = "waitingForRound",
@@ -187,8 +185,8 @@ namespace TennisApi
                 }
             }
 
-            // 4. Persistir el estado actualizado
-            await atContainer.UpsertItemAsync(state, new PartitionKey(payload.UserId));
+            // Persistir el estado actualizado
+            await atContainer.UpsertItemAsync(state, new PartitionKey(leagueId));
 
             var res = req.CreateResponse(HttpStatusCode.OK);
             res.Headers.Add("Content-Type", "application/json");
@@ -254,14 +252,13 @@ namespace TennisApi
                     p.Sim = sim;
         }
 
-        // Aplica las recompensas al humano cuando termina su recorrido en el torneo.
-        // Devuelve un resumen para el frontend.
+        // Aplica las recompensas al humano cuando termina su recorrido en el torneo. Devuelve un resumen para el frontend.
         private async Task<object> ApplyHumanRewards(ActiveTournamentDoc state, bool isChampion)
         {
             // Ronda donde cayó (o 1 si es campeón). ReachedRound guarda el tamaño de ronda.
             int reachedRoundSize = state.ReachedRound.TryGetValue(state.UserId, out var rr) ? rr : 16;
 
-            // 1. Calcular recompensas según categoría y ronda
+            // Calcular recompensas según categoría y ronda
             int championPoints = TournamentRewards.ChampionPoints(state.Category);
             double fraction = TournamentRewards.PointsFractionByRound(reachedRoundSize, isChampion);
             int pointsEarned = (int)Math.Round(championPoints * fraction);
@@ -269,7 +266,7 @@ namespace TennisApi
             int restsEarned = TournamentRewards.RestsByRound(reachedRoundSize, isChampion);
             double attrGain = isChampion ? TournamentRewards.ChampionAttributeGain(state.Category) : 0.0;
 
-            // 2. Actualizar el documento del jugador (dinero, descansos, atributos)
+            // Actualizar el documento del jugador (dinero, descansos, atributos)
             var playersContainer = cosmos.GetContainer("TennisManagerDB", "players");
             var pQuery = new QueryDefinition("SELECT * FROM c WHERE c.userId = @uid").WithParameter("@uid", state.UserId);
             var pOpts = new QueryRequestOptions { PartitionKey = new PartitionKey(state.UserId) };
@@ -280,7 +277,7 @@ namespace TennisApi
             int attrPointsApplied = 0;
             if (playerDoc != null)
             {
-                // Subida fraccionada de atributos: acumular y aplicar +1 cuando se llega a 1.0
+                // Subida fraccionada de atributos
                 if (attrGain > 0)
                 {
                     playerDoc.AttributeProgress += attrGain;
@@ -299,14 +296,14 @@ namespace TennisApi
                 await playersContainer.UpsertItemAsync(playerDoc, new PartitionKey(state.UserId));
             }
 
-            // 3. Actualizar dinero y descansos en el documento de usuario
+            // Actualizar dinero y descansos en el documento de usuario
             var usersContainer = cosmos.GetContainer("TennisManagerDB", "users");
             var userDoc = (await usersContainer.ReadItemAsync<UserDocument>(state.UserId, new PartitionKey(state.UserId))).Resource;
             userDoc.Money += moneyEarned;
             userDoc.Rests += restsEarned;
             await usersContainer.UpsertItemAsync(userDoc, new PartitionKey(state.UserId));
 
-            // 4. Sumar puntos al ranking de la liga
+            // Sumar puntos al ranking de la liga
             var leaguesContainer = cosmos.GetContainer("TennisManagerDB", "leagues");
             var league = (await leaguesContainer.ReadItemAsync<LeagueDocument>(state.LeagueId, new PartitionKey(state.LeagueId))).Resource;
             var myStanding = league.Standings.FirstOrDefault(s => s.UserId == state.UserId);
@@ -320,7 +317,7 @@ namespace TennisApi
                 await leaguesContainer.UpsertItemAsync(league, new PartitionKey(state.LeagueId));
             }
 
-            // 5. Resumen para el frontend
+            // Resumen para el frontend
             return new
             {
                 pointsEarned,
