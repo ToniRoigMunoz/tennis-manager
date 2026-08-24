@@ -72,7 +72,7 @@ namespace TennisApi
         * Devuelve el campeón y cuántas rondas alcanzó cada uno.
         */
         public static (Participant champion, Dictionary<string, int> reached, List<RoundRecord> history)
-            ResolveRemainingFully(List<Participant> players, int seedBase, Dictionary<string, int> reached)
+        ResolveRemainingFully(List<Participant> players, int seedBase, Dictionary<string, int> reached)
         {
             var history = new List<RoundRecord>();
             int roundOffset = 100;
