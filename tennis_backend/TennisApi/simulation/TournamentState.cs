@@ -4,13 +4,13 @@ namespace TennisApi
 {
     public class ActiveTournamentDoc
     {
-        [JsonPropertyName("id")]           public string Id { get; set; } = "";       // = userId (un torneo activo por usuario)
+        [JsonPropertyName("id")]           public string Id { get; set; } = ""; // = leagueId (un torneo activo por liga)
         [JsonPropertyName("userId")]       public string UserId { get; set; } = "";
         [JsonPropertyName("leagueId")]     public string LeagueId { get; set; } = "";
         [JsonPropertyName("tournamentName")] public string TournamentName { get; set; } = "";
         [JsonPropertyName("surface")]      public string Surface { get; set; } = "";
         [JsonPropertyName("seed")]         public int Seed { get; set; }
-        [JsonPropertyName("currentRound")] public int CurrentRound { get; set; }      // 0 = primera ronda jugada
+        [JsonPropertyName("currentRound")] public int CurrentRound { get; set; } // 0 = primera ronda jugada
         [JsonPropertyName("humanAlive")]   public bool HumanAlive { get; set; } = true;
         [JsonPropertyName("humanEliminatedRound")] public int HumanEliminatedRound { get; set; } = -1;
         [JsonPropertyName("finished")]     public bool Finished { get; set; }

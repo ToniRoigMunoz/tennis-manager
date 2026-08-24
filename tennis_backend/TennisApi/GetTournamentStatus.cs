@@ -17,22 +17,25 @@ namespace TennisApi
             try
             {
                 var userId = req.Query["userId"] ?? "demo-user-001";
-                var seasonId = req.Query["seasonId"] ?? "season-2026-01"; // ★ NUEVO
-                var atContainer = cosmos.GetContainer("TennisManagerDB", "activeTournaments");
+                var seasonId = req.Query["seasonId"] ?? "season-2026-01";
+                var atContainer = cosmos.GetContainer("TennisManagerDB", "activeLeagueTournaments");
 
-                // 1. ¿Existe ya un torneo activo para este usuario?
+                // La liga del usuario que consulta (el torneo vive por liga)
+                var leagueId = await LeagueLookup.GetLeagueId(cosmos, userId);
+
+                // ¿Existe ya un torneo activo para esta liga?
                 ActiveTournamentDoc? state = null;
                 try
                 {
                     state = (await atContainer.ReadItemAsync<ActiveTournamentDoc>(
-                        userId, new PartitionKey(userId))).Resource;
+                        leagueId, new PartitionKey(leagueId))).Resource;
                 }
                 catch (CosmosException ex) when (ex.StatusCode == HttpStatusCode.NotFound)
                 {
-                    state = null; // no hay torneo, lo crearemos abajo
+                    state = null; // No hay torneo, lo crearemos abajo
                 }
 
-                                // 2a. Si no existe torneo, creamos el del día
+                                // Si no existe torneo, creamos el del día
                 if (state == null)
                 {
                     var payload = await TournamentBootstrap.CreateDailyTournament(cosmos, userId);
@@ -42,7 +45,7 @@ namespace TennisApi
                     return resNew;
                 }
 
-                // 2b. Si el torneo del día ya terminó, NO creamos otro: "ya jugaste hoy"
+                // Si el torneo del día ya terminó, no creamos otro
                 if (state.Finished || !state.HumanAlive)
                 {
                     var doneResult = await SeasonDayDonePayload(state);
@@ -52,16 +55,16 @@ namespace TennisApi
                     return resDone;
                 }
 
-                // ★ NUEVO: cargar la temporada para consultar el reloj
+                // Cargar la temporada para consultar el reloj
                 var toursC = cosmos.GetContainer("TennisManagerDB", "tournaments");
                 var season = (await toursC.ReadItemAsync<TournamentDocument>(
                     seasonId, new PartitionKey(seasonId))).Resource;
 
-                // ★ NUEVO: poner al día el torneo (simular rondas cuya ventana ya se cerró)
+                // Poner al día el torneo (simular rondas cuya ventana ya se cerró)
                 await CatchUpClosedRounds(state, season);
-                await atContainer.UpsertItemAsync(state, new PartitionKey(userId));
+                await atContainer.UpsertItemAsync(state, new PartitionKey(leagueId));
 
-                // ★ NUEVO: si la puesta al día terminó el torneo, lo indicamos
+                // Si la puesta al día terminó el torneo, lo indicamos
                 if (state.Finished)
                 {
                     var resFin = req.CreateResponse(HttpStatusCode.OK);
@@ -71,13 +74,13 @@ namespace TennisApi
                     return resFin;
                 }
 
-                // 3. Hay un torneo en curso: buscar el partido pendiente del humano
+                // Hay un torneo en curso: buscar el partido pendiente del humano
                 var pendingMatch = FindPendingHumanMatch(state);
                 object result;
 
                 if (pendingMatch != null)
                 {
-                    // ★ NUEVO: gating por reloj
+                    // Gating por reloj
                     int clockRound = ServerClock.CurrentUnlockedRound(season);
                     int humanRound = state.HumanRoundIndex;
 
@@ -137,7 +140,7 @@ namespace TennisApi
             }
         }
 
-        // ★ NUEVO: simula las rondas del humano cuya ventana horaria ya se cerró
+        // Simula las rondas del humano cuya ventana horaria ya se cerró
         private async Task CatchUpClosedRounds(ActiveTournamentDoc state, TournamentDocument season)
         {
             int safety = 0;
@@ -173,9 +176,7 @@ namespace TennisApi
             return "";
         }
 
-        // Simula UN partido pendiente del humano e integra el resultado en el cuadro.
-        // Reutiliza las piezas del orquestador. Al terminar, el humano tiene un nuevo
-        // pendiente (si sigue vivo) o el torneo queda resuelto.
+        // Simula un partido pendiente del humano e integra el resultado en el cuadro.
         private async Task SimulateHumanPendingMatch(ActiveTournamentDoc state)
         {
             // Rehidratar los Sim de los supervivientes (no se persisten)
@@ -282,7 +283,6 @@ namespace TennisApi
             _ => 16,
         };
 
-                // Payload para "ya jugaste hoy": indica el torneo de mañana
         private async Task<object> SeasonDayDonePayload(ActiveTournamentDoc state)
         {
             string nextTournamentName = "Próximo torneo";
