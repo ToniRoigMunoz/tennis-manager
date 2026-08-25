@@ -48,7 +48,7 @@ namespace TennisApi
                 AttributeProgress = 0,
             }, new PartitionKey(newUserId));
 
-            // 3. Reemplazar un bot de la liga por el nuevo humano (mantener los 24)
+            // Reemplazar un bot de la liga por el nuevo humano (mantener los 24)
             var leagues = db.GetContainer("leagues");
             var league = (await leagues.ReadItemAsync<LeagueDocument>(leagueId, new PartitionKey(leagueId))).Resource;
 
