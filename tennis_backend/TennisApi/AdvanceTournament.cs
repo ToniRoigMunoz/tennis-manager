@@ -42,59 +42,72 @@ namespace TennisApi
 
             await RehydrateSims(state);
 
-            // Localizar al humano y su partido pendiente en la ronda actual
+            // Cargar participantes para resolver rivales (humanos o bots)
+            var allParticipants = await ParticipantLoader.Load(cosmos, state.LeagueId);
+
+            // El humano que REPORTÓ (no "el humano" genérico)
+            var reporter = allParticipants.FirstOrDefault(p => p.Id == payload.UserId);
+            if (reporter is null) return req.CreateResponse(HttpStatusCode.NotFound);
+
+            // Localizar el partido pendiente DE ESE humano en la ronda actual
             var lastRound = state.History[^1];
-            var humanMatch = lastRound.Results.FirstOrDefault(r => r.InvolvesHuman && r.WinnerId == "");
+            var humanMatch = lastRound.Results.FirstOrDefault(r =>
+                r.WinnerId == "" && (r.P1Name == reporter.Name || r.P2Name == reporter.Name));
             if (humanMatch is null)
                 return req.CreateResponse(HttpStatusCode.Conflict);
 
-            var human = FindHuman(state);
-            if (human is null) return req.CreateResponse(HttpStatusCode.NotFound);
-
-            // Integrar el resultado del partido animado
-            var opponentName = humanMatch.P1Name == human.Name ? humanMatch.P2Name : humanMatch.P1Name;
+            // Identificar al rival y si es humano o bot
+            var opponentName = humanMatch.P1Name == reporter.Name ? humanMatch.P2Name : humanMatch.P1Name;
+            var opponent = allParticipants.FirstOrDefault(p => p.Name == opponentName && p.Id != reporter.Id);
+            bool opponentIsHuman = opponent?.IsHuman ?? false;
+            int roundSize = RoundSizeFromName(lastRound.RoundName);
 
             if (payload.HumanWon)
             {
-                humanMatch.WinnerId = state.UserId;
-                humanMatch.WinnerName = human.Name;
+                // Gana el que reportó
+                humanMatch.WinnerId = reporter.Id;
+                humanMatch.WinnerName = reporter.Name;
                 humanMatch.SetsScore = payload.SetsScore;
 
-                // El rival batido no puede seguir vivo. Lo registramos en ReachedRound antes de quitarlo, para que reciba sus puntos.
-                var beatenName = humanMatch.P1Name == human.Name ? humanMatch.P2Name : humanMatch.P1Name;
-                var beaten = state.Survivors.FirstOrDefault(p => p.Name == beatenName && !p.IsHuman);
-                if (beaten != null)
+                // El rival (bot O humano) cae y se registra su ronda
+                if (opponent != null)
                 {
-                    int roundSize = RoundSizeFromName(state.History[^1].RoundName);
-                    state.ReachedRound[beaten.Id] = roundSize;
+                    state.ReachedRound[opponent.Id] = roundSize;
+                    if (opponentIsHuman && state.HumanStates.TryGetValue(opponent.Id, out var hsRivalOut))
+                    {
+                        hsRivalOut.Alive = false;
+                        hsRivalOut.EliminatedRound = roundSize;
+                    }
                 }
-                state.Survivors.RemoveAll(p => p.Name == beatenName && !p.IsHuman);
+                state.Survivors.RemoveAll(p => p.Name == opponentName && p.Id != reporter.Id);
 
-                // El humano se une a los supervivientes de esta ronda (evitando duplicados)
-                if (!state.Survivors.Any(p => p.IsHuman))
-                    state.Survivors.Add(human);
+                // El que reportó se une a los supervivientes (sin duplicar)
+                if (!state.Survivors.Any(p => p.Id == reporter.Id))
+                    state.Survivors.Add(reporter);
             }
             else
             {
-                var opponent = FindOpponentInSurvivorsPool(state, opponentName, human);
+                // Pierde el que reportó; gana el rival (bot o humano)
                 humanMatch.WinnerId = opponent?.Id ?? "opponent";
                 humanMatch.WinnerName = opponentName;
                 humanMatch.SetsScore = payload.SetsScore;
 
-                // Registrar hasta dónde llegó el humano
-                var playersThisRound = state.Survivors.Count + 1; // +1 por el propio humano que sale
-                state.ReachedRound[payload.UserId] = RoundSizeFromName(lastRound.RoundName);
-                state.HumanAlive = false;
-                if (state.HumanStates.TryGetValue(payload.UserId, out var hsLost))
+                // El que reportó cae
+                state.ReachedRound[reporter.Id] = roundSize;
+                if (state.HumanStates.TryGetValue(reporter.Id, out var hsLost))
                 {
                     hsLost.Alive = false;
-                    hsLost.EliminatedRound = RoundSizeFromName(lastRound.RoundName);
+                    hsLost.EliminatedRound = roundSize;
                 }
-                state.HumanEliminatedRound = RoundSizeFromName(lastRound.RoundName);
 
-                // Añadir al rival que venció al humano a los supervivientes
-                if (opponent != null) state.Survivors.Add(opponent);
+                // El rival avanza (sin duplicar). Si es humano, sigue vivo con su partido ya resuelto.
+                if (opponent != null && !state.Survivors.Any(p => p.Id == opponent.Id))
+                    state.Survivors.Add(opponent);
             }
+
+            // Compatibilidad con los campos singulares viejos (los lee alguna rama)
+            state.HumanAlive = state.IsAlive(payload.UserId);
+            if (!state.HumanAlive) state.HumanEliminatedRound = roundSize;
 
             // Decidir el siguiente paso
             object result = new { status = "error", message = "Estado no resuelto" };
@@ -115,9 +128,14 @@ namespace TennisApi
             }
             else
             {
-                // El humano sigue vivo, ¿es ya el único que queda?
-                if (state.Survivors.Count == 1 && state.Survivors[0].IsHuman)
+                // El humano ganó su partido. El que reportó queda a la espera de su próxima ronda.
+
+                int wonRoundIndex = state.History.Count;      // la ronda que acaba de ganar
+                bool wasFinal = lastRound.Results.Count == 1; // la final tiene un único partido
+
+                if (wasFinal)
                 {
+                    // Ganó la final: es campeón
                     state.Finished = true;
                     state.ChampionId = payload.UserId;
                     state.ReachedRound[payload.UserId] = 1;
@@ -128,68 +146,27 @@ namespace TennisApi
                     {
                         status = "finished",
                         humanWonTournament = true,
-                        championName = human.Name,
+                        championName = reporter.Name,
                         history = state.History,
                         rewards,
                     };
                 }
                 else
                 {
-                    state.CurrentRound++;
+                    // Queda a la espera de la siguiente ronda (la montará el reloj)
+                    int nextRound = wonRoundIndex + 1;
+                    if (state.HumanStates.TryGetValue(payload.UserId, out var hsNext))
+                        hsNext.RoundIndex = nextRound;
+                    state.HumanRoundIndex = nextRound;
 
-                    // Número real de jugadores en esta ronda igual a supervivientes vivos ahora mismo (incluye al humano recién añadido)
-                    int playersInThisRound = state.Survivors.Count;
-
-                    // Resolver la siguiente ronda saltando otra vez al humano
-                    var aliveHumans = state.HumanStates.Where(kv => kv.Value.Alive).Select(kv => kv.Key).ToHashSet();
-                    var (matches, humanMatches, advancing) = TournamentOrchestrator.ResolveRoundMultiHuman(state.Survivors, state.Seed + state.CurrentRound * 1000, aliveHumans);
-
-                    RecordRound(state, matches, TournamentBracket.RoundName(state.Survivors.Count));
-                    foreach (var m in matches.Where(m => m.WinnerId != null))
+                    result = new
                     {
-                        var loser = m.WinnerId == m.Player1!.Id ? m.Player2! : m.Player1!;
-                        state.ReachedRound[loser.Id] = state.Survivors.Count;
-                    }
-
-                    var myNextMatch = humanMatches.FirstOrDefault(m => m.Player1!.Id == payload.UserId || m.Player2!.Id == payload.UserId);
-                    if (myNextMatch != null)
-                    {
-                        var opp = myNextMatch.Player1!.Id == payload.UserId ? myNextMatch.Player2! : myNextMatch.Player1!;
-                        state.Survivors = advancing;
-                        state.HumanRoundIndex = state.History.Count;
-                        if (state.HumanStates.TryGetValue(payload.UserId, out var hsNext))
-                        {
-                            hsNext.RoundIndex = state.History.Count;
-                        }
-
-                        // Gating por reloj: ¿está abierta la ventana de la siguiente ronda?
-                        int clockRound = ServerClock.CurrentUnlockedRound(season);
-                        if (clockRound < state.HumanRoundIndex)
-                        {
-                            // Aún no toca, el humano debe esperar a la siguiente ventana
-                            result = new
-                            {
-                                status = "waitingForRound",
-                                tournamentName = state.TournamentName,
-                                roundName = ServerClock.RoundNameByIndex(state.HumanRoundIndex),
-                                unlockUtc = ServerClock.RoundUnlockTime(season, state.HumanRoundIndex).ToString("o"),
-                                history = state.History,
-                            };
-                        }
-                        else
-                        {
-                            // La ventana ya está abierta: puede jugar ya
-                            result = new
-                            {
-                                status = "humanPlays",
-                                tournamentName = state.TournamentName,
-                                surface = state.Surface,
-                                roundName = ServerClock.RoundNameByIndex(state.HumanRoundIndex),
-                                opponent = new { opp.Id, opp.Name, opp.Overall },
-                                history = state.History,
-                            };
-                        }
-                    }
+                        status = "waitingForRound",
+                        tournamentName = state.TournamentName,
+                        roundName = ServerClock.RoundNameByIndex(nextRound),
+                        unlockUtc = ServerClock.RoundUnlockTime(season, nextRound).ToString("o"),
+                        history = state.History,
+                    };
                 }
             }
 
@@ -212,12 +189,6 @@ namespace TennisApi
             // Reconstruir desde el loader completo
             var all = ParticipantLoader.Load(cosmos, state.LeagueId).GetAwaiter().GetResult();
             return all.FirstOrDefault(p => p.Id == state.UserId);
-        }
-
-        private Participant? FindOpponentInSurvivorsPool(ActiveTournamentDoc state, string opponentName, Participant human)
-        {
-            var all = ParticipantLoader.Load(cosmos, state.LeagueId).GetAwaiter().GetResult();
-            return all.FirstOrDefault(p => p.Name == opponentName && p.Id != human.Id);
         }
 
         private static void RecordRound(ActiveTournamentDoc state, List<BracketMatch> matches, string roundName)

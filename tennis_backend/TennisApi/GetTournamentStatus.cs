@@ -61,7 +61,7 @@ namespace TennisApi
                     seasonId, new PartitionKey(seasonId))).Resource;
 
                 // Poner al día el torneo (simular rondas cuya ventana ya se cerró)
-                await CatchUpClosedRounds(state, season);
+                await SyncRoundsToClock(state, season);
                 await atContainer.UpsertItemAsync(state, new PartitionKey(leagueId));
 
                 // Si la puesta al día terminó el torneo, lo indicamos
@@ -141,22 +141,90 @@ namespace TennisApi
             }
         }
 
-        // Simula las rondas del humano cuya ventana horaria ya se cerró
-        private async Task CatchUpClosedRounds(ActiveTournamentDoc state, TournamentDocument season)
+                // Sincroniza el torneo con el reloj: por cada ronda cuya ventana se cerró,
+        // simula los partidos humanos no jugados y monta la siguiente ronda (para todos).
+        private async Task SyncRoundsToClock(ActiveTournamentDoc state, TournamentDocument season)
         {
+            var all = await ParticipantLoader.Load(cosmos, state.LeagueId);
+            var simById = all.ToDictionary(p => p.Id, p => p.Sim);
+            var byName = all.GroupBy(p => p.Name).ToDictionary(g => g.Key, g => g.First());
+
             int safety = 0;
-            while (!state.Finished && safety++ < 10)
+            while (!state.Finished && safety++ < 12)
             {
-                var humanName = HumanNameOf(state, state.UserId);
-                var pendingMatch = FindPendingHumanMatch(state, humanName);
-                if (pendingMatch == null) break;
+                int assembledRound = state.History.Count;                 // última ronda montada
+                int clockWindow = ServerClock.CurrentUnlockedRound(season);
 
-                int humanRound = state.RoundIndexOf(state.UserId);
-                // Si la ventana de esta ronda NO se ha cerrado aún, no hay nada que simular
-                if (ServerClock.CurrentUnlockedRound(season) <= humanRound) break;
+                // Si el reloj no ha pasado de la ronda montada, no hay nada que cerrar aún
+                if (clockWindow <= assembledRound) break;
 
-                // La ventana se cerró sin que el humano jugara: simular su partido
-                await SimulateHumanPendingMatch(state);
+                var lastRound = state.History[^1];
+                int roundSize = RoundSizeFromName(lastRound.RoundName);
+
+                // 1. Simular los partidos humanos NO jugados de esta ronda (ventana cerrada)
+                foreach (var m in lastRound.Results.Where(r => r.InvolvesHuman && string.IsNullOrEmpty(r.WinnerId)).ToList())
+                {
+                    if (!byName.TryGetValue(m.P1Name, out var p1) || !byName.TryGetValue(m.P2Name, out var p2)) continue;
+                    if (p1.Sim == null && simById.TryGetValue(p1.Id, out var s1)) p1.Sim = s1;
+                    if (p2.Sim == null && simById.TryGetValue(p2.Id, out var s2)) p2.Sim = s2;
+
+                    int matchSeed = state.Seed + assembledRound * 7919 + m.P1Name.GetHashCode();
+                    var (winnerId, score) = TournamentBracket.SimulateFast(p1, p2, matchSeed);
+                    var winner = winnerId == p1.Id ? p1 : p2;
+                    var loser = winnerId == p1.Id ? p2 : p1;
+
+                    m.WinnerId = winner.Id;
+                    m.WinnerName = winner.Name;
+                    m.SetsScore = score;
+
+                    // El perdedor (humano o bot) cae
+                    state.ReachedRound[loser.Id] = roundSize;
+                    if (loser.IsHuman && state.HumanStates.TryGetValue(loser.Id, out var hsL))
+                    {
+                        hsL.Alive = false;
+                        hsL.EliminatedRound = roundSize;
+                    }
+                    // El ganador entra en supervivientes (sin duplicar)
+                    if (!state.Survivors.Any(p => p.Id == winner.Id)) state.Survivors.Add(winner);
+                    state.Survivors.RemoveAll(p => p.Id == loser.Id);
+                }
+
+                // 2. ¿Queda un solo superviviente? Campeón.
+                if (state.Survivors.Count <= 1)
+                {
+                    state.Finished = true;
+                    if (state.Survivors.Count == 1)
+                    {
+                        state.ChampionId = state.Survivors[0].Id;
+                        state.ReachedRound[state.Survivors[0].Id] = 1;
+                    }
+                    break;
+                }
+
+                // 3. Montar la siguiente ronda (una sola vez, con todos los supervivientes)
+                foreach (var p in state.Survivors)
+                    if (p.Sim == null && simById.TryGetValue(p.Id, out var sim)) p.Sim = sim;
+
+                state.CurrentRound++;
+                var aliveHumans = state.HumanStates.Where(kv => kv.Value.Alive).Select(kv => kv.Key).ToHashSet();
+                var (matches, humanMatches, advancing) = TournamentOrchestrator.ResolveRoundMultiHuman(
+                    state.Survivors, state.Seed + state.CurrentRound * 1000, aliveHumans);
+
+                RecordRound(state, matches, TournamentBracket.RoundName(state.Survivors.Count));
+                foreach (var mm in matches.Where(x => x.WinnerId != null))
+                {
+                    var loser = mm.WinnerId == mm.Player1!.Id ? mm.Player2! : mm.Player1!;
+                    state.ReachedRound[loser.Id] = state.Survivors.Count;
+                }
+                state.Survivors = advancing;
+
+                // Actualizar la ronda de cada humano vivo que sigue en el cuadro
+                int newRoundIndex = state.History.Count;
+                foreach (var hm in humanMatches)
+                {
+                    foreach (var pid in new[] { hm.Player1!.Id, hm.Player2!.Id })
+                        if (state.HumanStates.TryGetValue(pid, out var hs)) hs.RoundIndex = newRoundIndex;
+                }
             }
         }
 
@@ -175,92 +243,6 @@ namespace TennisApi
             if (state.HumanStates.TryGetValue(userId, out var hs) && !string.IsNullOrEmpty(hs.Name))
                 return hs.Name;
             return ""; // respaldo
-        }
-
-        // Simula un partido pendiente del humano e integra el resultado en el cuadro.
-        private async Task SimulateHumanPendingMatch(ActiveTournamentDoc state)
-        {
-            // Rehidratar los Sim de los supervivientes (no se persisten)
-            var all = await ParticipantLoader.Load(cosmos, state.LeagueId);
-            var simById = all.ToDictionary(p => p.Id, p => p.Sim);
-            foreach (var p in state.Survivors)
-                if (p.Sim == null && simById.TryGetValue(p.Id, out var sim))
-                    p.Sim = sim;
-
-            var human = all.FirstOrDefault(p => p.Id == state.UserId);
-            if (human == null) return;
-
-            var lastRound = state.History[^1];
-            var humanMatch = lastRound.Results.FirstOrDefault(r => r.InvolvesHuman && string.IsNullOrEmpty(r.WinnerId));
-            if (humanMatch == null) return;
-
-            var opponentName = humanMatch.P1Name == human.Name ? humanMatch.P2Name : humanMatch.P1Name;
-            var opponent = all.FirstOrDefault(p => p.Name == opponentName && p.Id != human.Id);
-            if (opponent == null) return;
-
-            // Simular el partido del humano
-            int matchSeed = state.Seed + state.HumanRoundIndex * 7919 + 31;
-            var (winnerId, score) = TournamentBracket.SimulateFast(human, opponent, matchSeed);
-            bool humanWon = winnerId == human.Id;
-
-            humanMatch.WinnerId = winnerId;
-            humanMatch.WinnerName = humanWon ? human.Name : opponent.Name;
-            humanMatch.SetsScore = score;
-
-            if (humanWon)
-            {
-                state.ReachedRound[opponent.Id] = RoundSizeFromName(lastRound.RoundName);
-                state.Survivors.RemoveAll(p => p.Name == opponentName && !p.IsHuman);
-                if (!state.Survivors.Any(p => p.IsHuman)) state.Survivors.Add(human);
-            }
-            else
-            {
-                state.ReachedRound[state.UserId] = RoundSizeFromName(lastRound.RoundName);
-                state.HumanAlive = false;
-                state.HumanEliminatedRound = RoundSizeFromName(lastRound.RoundName);
-                if (state.HumanStates.TryGetValue(state.UserId, out var hsLost))
-                {
-                    hsLost.Alive = false;
-                    hsLost.EliminatedRound = RoundSizeFromName(lastRound.RoundName);
-                }
-                if (!state.Survivors.Any(p => p.Id == opponent.Id)) state.Survivors.Add(opponent);
-            }
-
-            // Avanzar el estado del torneo tras integrar el resultado
-            if (!state.HumanAlive)
-            {
-                var (champion, reached, history) = TournamentOrchestrator.ResolveRemainingFully(
-                    state.Survivors, state.Seed + 50000, state.ReachedRound);
-                state.ReachedRound = reached;
-                state.History.AddRange(history);
-                state.Finished = true;
-                state.ChampionId = champion.Id;
-            }
-            else if (state.Survivors.Count == 1 && state.Survivors[0].IsHuman)
-            {
-                state.Finished = true;
-                state.ChampionId = state.UserId;
-                state.ReachedRound[state.UserId] = 1;
-            }
-            else
-            {
-                state.CurrentRound++;
-                var aliveHumans = state.HumanStates.Where(kv => kv.Value.Alive).Select(kv => kv.Key).ToHashSet();
-                var (matches, humanMatches, advancing) = TournamentOrchestrator.ResolveRoundMultiHuman(state.Survivors, state.Seed + state.CurrentRound * 1000, aliveHumans);
-
-                RecordRound(state, matches, TournamentBracket.RoundName(state.Survivors.Count));
-                foreach (var m in matches.Where(m => m.WinnerId != null))
-                {
-                    var loser = m.WinnerId == m.Player1!.Id ? m.Player2! : m.Player1!;
-                    state.ReachedRound[loser.Id] = state.Survivors.Count;
-                }
-                state.Survivors = advancing;
-                state.HumanRoundIndex = state.History.Count; // la nueva ronda pendiente
-                if (state.HumanStates.TryGetValue(state.UserId, out var hsNext)) 
-                {
-                    hsNext.RoundIndex = state.History.Count;
-                }
-            }
         }
 
         private static void RecordRound(ActiveTournamentDoc state, List<BracketMatch> matches, string roundName)
