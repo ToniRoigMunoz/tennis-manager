@@ -245,9 +245,8 @@ namespace TennisApi
             else
             {
                 state.CurrentRound++;
-                var (matches, nextHumanMatch, advancing) =
-                    TournamentOrchestrator.ResolveRoundSkippingHuman(
-                        state.Survivors, state.Seed + state.CurrentRound * 1000, humanAlive: true);
+                var aliveHumans = state.HumanStates.Where(kv => kv.Value.Alive).Select(kv => kv.Key).ToHashSet();
+                var (matches, humanMatches, advancing) = TournamentOrchestrator.ResolveRoundMultiHuman(state.Survivors, state.Seed + state.CurrentRound * 1000, aliveHumans);
 
                 RecordRound(state, matches, TournamentBracket.RoundName(state.Survivors.Count));
                 foreach (var m in matches.Where(m => m.WinnerId != null))
