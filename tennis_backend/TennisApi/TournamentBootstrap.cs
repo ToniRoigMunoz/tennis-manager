@@ -46,16 +46,17 @@ namespace TennisApi
                 ReachedRound = [],
                 History = [],
                 Category = todayTournament.Category,
-                HumanStates = new Dictionary<string, HumanTournamentState>
-                {
-                    [userId] = new HumanTournamentState
-                    {
-                        UserId = userId,
-                        Alive = true,
-                        RoundIndex = 1,
-                        Name = participants.FirstOrDefault(p => p.Id == userId)?.Name ?? "",
-                    }
-                },
+                HumanStates = participants
+                    .Where(p => p.IsHuman)
+                    .ToDictionary(
+                        p => p.Id,
+                        p => new HumanTournamentState
+                        {
+                            UserId = p.Id,
+                            Alive = true,
+                            RoundIndex = 1,
+                            Name = p.Name,
+                        }),
             };
 
             RecordRound(state, matches, TournamentBracket.RoundName(playing.Count));
