@@ -61,7 +61,7 @@ namespace TennisApi
                     seasonId, new PartitionKey(seasonId))).Resource;
 
                 // Poner al día el torneo (simular rondas cuya ventana ya se cerró)
-                await SyncRoundsToClock(state, season);
+                await TournamentClockSync.SyncRoundsToClock(cosmos, state, season);
                 await atContainer.UpsertItemAsync(state, new PartitionKey(leagueId));
 
                 // Si la puesta al día terminó el torneo, lo indicamos

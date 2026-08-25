@@ -39,27 +39,24 @@ namespace TennisApi
                 int botsRewarded = 0;
                 string? distributionNote = null;
 
+                var toursContainer = cosmos.GetContainer("TennisManagerDB", "tournaments");
+                var season = (await toursContainer.ReadItemAsync<TournamentDocument>(user.SeasonId, new PartitionKey(user.SeasonId))).Resource;
+
                 // Si el torneo del día no está terminado, resolverlo automáticamente (el humano no terminó de jugarlo)
                 if (state != null && !state.Finished)
                 {
-                    if (state.IsAlive(state.UserId))
-                    {
-                        // El humano seguía vivo pero no terminó: simular su recorrido
-                        await AutoResolveHumanTournament(state);
-                    }
-                    else
-                    {
-                        // El humano ya cayó: resolver el cuadro restante de bots
-                        await RehydrateSims(state);
-                        var (champion, reached, history) = TournamentOrchestrator.ResolveRemainingFully(
-                            state.Survivors, state.Seed + 50000, state.ReachedRound);
-                        state.ReachedRound = reached;
-                        state.History.AddRange(history);
-                        state.Finished = true;
-                        state.ChampionId = champion.Id;
-                    }
+                    // Resolver el torneo del día ENTERO con la lógica compartida gobernada por el reloj.
+                    // Empujamos el reloj más allá de la última ronda para que SyncRoundsToClock
+                    // simule todas las rondas pendientes (de todos los humanos y bots).
+                    season.DevTimeOffsetSeconds += (long)(ServerClock.MaxRounds + 1) * season.RoundIntervalMinutes * 60;
+                    await TournamentClockSync.SyncRoundsToClock(cosmos, state, season);
+
+                    // Aplicar recompensas a los humanos que no las recibieron (no jugaron su torneo)
+                    foreach (var hs in state.HumanStates.Values)
+                        await ApplyHumanRewardsInternal(state, hs.UserId, isChampion: state.ChampionId == hs.UserId);
+
                     await atContainer.UpsertItemAsync(state, new PartitionKey(user.LeagueId));
-                    distributionNote = "Torneo del día resuelto al avanzar.";
+                    distributionNote = "Torneo del día resuelto al avanzar (multi-humano).";
                 }
 
                 // Repartir puntos a la liga del humano
@@ -96,8 +93,6 @@ namespace TennisApi
                 }
 
                 // Incrementar el día de la temporada
-                var toursContainer = cosmos.GetContainer("TennisManagerDB", "tournaments");
-                var season = (await toursContainer.ReadItemAsync<TournamentDocument>(user.SeasonId, new PartitionKey(user.SeasonId))).Resource;
                 int previousDay = season.CurrentDay;
                 object? endSeasonSummary = null;
 
@@ -229,139 +224,10 @@ namespace TennisApi
                 a.Value = Math.Min(a.Value + amount, 99);
         }
 
-        // Resuelve automáticamente el recorrido restante del humano cuando no terminó su torneo. Simula sus partidos pendientes hasta que el torneo acaba.
-        private async Task AutoResolveHumanTournament(ActiveTournamentDoc state)
-        {
-            await RehydrateSims(state);
-
-            var all = await ParticipantLoader.Load(cosmos, state.LeagueId);
-            var byId = all.ToDictionary(p => p.Id, p => p);
-            var human = all.FirstOrDefault(p => p.Id == state.UserId);
-            if (human is null) return;
-
-            // Mientras el torneo no esté terminado, resolver el partido pendiente del humano
-            int safety = 0;
-            while (!state.Finished && safety++ < 20)
-            {
-                var lastRound = state.History[^1];
-                var humanMatch = lastRound.Results.FirstOrDefault(r => r.InvolvesHuman && string.IsNullOrEmpty(r.WinnerId));
-
-                if (humanMatch is null)
-                {
-                    // No hay partido pendiente del humano en la última ronda: algo raro, salimos
-                    break;
-                }
-
-                // Simular el partido pendiente del humano
-                var opponentName = humanMatch.P1Name == human.Name ? humanMatch.P2Name : humanMatch.P1Name;
-                var opponent = all.FirstOrDefault(p => p.Name == opponentName && p.Id != human.Id);
-                if (opponent is null) break;
-
-                int matchSeed = state.Seed + state.CurrentRound * 7919 + 31;
-                var (winnerId, score) = TournamentBracket.SimulateFast(human, opponent, matchSeed);
-                bool humanWon = winnerId == human.Id;
-
-                humanMatch.WinnerId = winnerId;
-                humanMatch.WinnerName = humanWon ? human.Name : opponent.Name;
-                humanMatch.SetsScore = score;
-
-                if (humanWon)
-                {
-                    // Registrar al rival batido en ReachedRound (cayó en la ronda actual) antes de quitarlo, para que reciba sus puntos.
-                    state.ReachedRound[opponent.Id] = RoundSizeFromName(lastRound.RoundName);
-                    state.Survivors.RemoveAll(p => p.Name == opponentName && !p.IsHuman);
-                    if (!state.Survivors.Any(p => p.IsHuman)) state.Survivors.Add(human);
-                }
-                else
-                {
-                    // El humano cae aquí
-                    state.ReachedRound[state.UserId] = RoundSizeFromName(lastRound.RoundName);
-                    state.HumanAlive = false;
-                    state.HumanEliminatedRound = RoundSizeFromName(lastRound.RoundName);
-                    if (!state.Survivors.Any(p => p.Id == opponent.Id)) state.Survivors.Add(opponent);
-                }
-
-                // Avanzar el estado del torneo tras integrar el resultado
-                if (!state.HumanAlive)
-                {
-                    // El humano cayó: resolver el resto de golpe
-                    var (champion, reached, history) = TournamentOrchestrator.ResolveRemainingFully(
-                        state.Survivors, state.Seed + 50000, state.ReachedRound);
-                    state.ReachedRound = reached;
-                    state.History.AddRange(history);
-                    state.Finished = true;
-                    state.ChampionId = champion.Id;
-
-                    // El humano también recibe sus recompensas (no las recibió porque no jugó)
-                    await ApplyHumanRewardsInternal(state, isChampion: false);
-                }
-                else if (state.Survivors.Count == 1 && state.Survivors[0].IsHuman)
-                {
-                    // El humano es el único que queda: campeón
-                    state.Finished = true;
-                    state.ChampionId = state.UserId;
-                    state.ReachedRound[state.UserId] = 1;
-                    await ApplyHumanRewardsInternal(state, isChampion: true);
-                }
-                else
-                {
-                    // Sigue vivo y queda torneo: montar la siguiente ronda saltando al humano
-                    var aliveHumans = state.HumanStates.Where(kv => kv.Value.Alive).Select(kv => kv.Key).ToHashSet();
-                    var (matches, humanMatches, advancing) = TournamentOrchestrator.ResolveRoundMultiHuman(state.Survivors, state.Seed + state.CurrentRound * 1000, aliveHumans);
-
-                    RecordRound(state, matches, TournamentBracket.RoundName(state.Survivors.Count));
-                    foreach (var m in matches.Where(m => m.WinnerId != null))
-                    {
-                        var loser = m.WinnerId == m.Player1!.Id ? m.Player2! : m.Player1!;
-                        state.ReachedRound[loser.Id] = state.Survivors.Count;
-                    }
-                    state.Survivors = advancing;
-                }
-            }
-        }
-
-        private async Task RehydrateSims(ActiveTournamentDoc state)
-        {
-            var all = await ParticipantLoader.Load(cosmos, state.LeagueId);
-            var simById = all.ToDictionary(p => p.Id, p => p.Sim);
-            foreach (var p in state.Survivors)
-                if (p.Sim == null && simById.TryGetValue(p.Id, out var sim))
-                    p.Sim = sim;
-        }
-
-        private static void RecordRound(ActiveTournamentDoc state, List<BracketMatch> matches, string roundName)
-        {
-            var rec = new RoundRecord { RoundName = roundName };
-            foreach (var m in matches)
-            {
-                var winnerName = m.WinnerId == null ? "(pendiente)"
-                    : (m.WinnerId == m.Player1!.Id ? m.Player1!.Name : m.Player2!.Name);
-                rec.Results.Add(new MatchRecord
-                {
-                    P1Name = m.Player1!.Name,
-                    P2Name = m.Player2!.Name,
-                    WinnerId = m.WinnerId ?? "",
-                    WinnerName = winnerName,
-                    SetsScore = m.SetsScore,
-                    InvolvesHuman = m.InvolvesHuman,
-                });
-            }
-            state.History.Add(rec);
-        }
-
-        private static int RoundSizeFromName(string roundName) => roundName switch
-        {
-            "Final" => 2,
-            "Semifinales" => 4,
-            "Cuartos de final" => 8,
-            "Octavos de final" => 16,
-            _ => 16,
-        };
-
         // Aplica recompensas al humano. Reutiliza la lógica de reparto, puntos al ranking, dinero, descansos, atributos.
-        private async Task ApplyHumanRewardsInternal(ActiveTournamentDoc state, bool isChampion)
+        private async Task ApplyHumanRewardsInternal(ActiveTournamentDoc state, string userId, bool isChampion)
         {
-            int reachedRoundSize = state.ReachedRound.TryGetValue(state.UserId, out var rr) ? rr : 16;
+            int reachedRoundSize = state.ReachedRound.TryGetValue(userId, out var rr) ? rr : 16;
             int championPoints = TournamentRewards.ChampionPoints(state.Category);
             double fraction = TournamentRewards.PointsFractionByRound(reachedRoundSize, isChampion);
             int pointsEarned = (int)Math.Round(championPoints * fraction);
@@ -370,8 +236,8 @@ namespace TennisApi
             double attrGain = isChampion ? TournamentRewards.ChampionAttributeGain(state.Category) : 0.0;
 
             var playersContainer = cosmos.GetContainer("TennisManagerDB", "players");
-            var pQuery = new QueryDefinition("SELECT * FROM c WHERE c.userId = @uid").WithParameter("@uid", state.UserId);
-            var pOpts = new QueryRequestOptions { PartitionKey = new PartitionKey(state.UserId) };
+            var pQuery = new QueryDefinition("SELECT * FROM c WHERE c.userId = @uid").WithParameter("@uid", userId);
+            var pOpts = new QueryRequestOptions { PartitionKey = new PartitionKey(userId) };
             using var pIter = playersContainer.GetItemQueryIterator<PlayerDocument>(pQuery, requestOptions: pOpts);
             var pPage = await pIter.ReadNextAsync();
             var playerDoc = pPage.FirstOrDefault();
@@ -390,18 +256,18 @@ namespace TennisApi
                         BumpAll(playerDoc.Technical, applied);
                     }
                 }
-                await playersContainer.UpsertItemAsync(playerDoc, new PartitionKey(state.UserId));
+                await playersContainer.UpsertItemAsync(playerDoc, new PartitionKey(userId));
             }
 
             var usersContainer = cosmos.GetContainer("TennisManagerDB", "users");
-            var userDoc = (await usersContainer.ReadItemAsync<UserDocument>(state.UserId, new PartitionKey(state.UserId))).Resource;
+            var userDoc = (await usersContainer.ReadItemAsync<UserDocument>(userId, new PartitionKey(userId))).Resource;
             userDoc.Money += moneyEarned;
             userDoc.Rests += restsEarned;
-            await usersContainer.UpsertItemAsync(userDoc, new PartitionKey(state.UserId));
+            await usersContainer.UpsertItemAsync(userDoc, new PartitionKey(userId));
 
             var leaguesContainer = cosmos.GetContainer("TennisManagerDB", "leagues");
             var league = (await leaguesContainer.ReadItemAsync<LeagueDocument>(state.LeagueId, new PartitionKey(state.LeagueId))).Resource;
-            var myStanding = league.Standings.FirstOrDefault(s => s.UserId == state.UserId);
+            var myStanding = league.Standings.FirstOrDefault(s => s.UserId == userId);
             if (myStanding != null)
             {
                 myStanding.Points += pointsEarned;
