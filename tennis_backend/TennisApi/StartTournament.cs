@@ -19,7 +19,7 @@ namespace TennisApi
                 var userId = req.Query["userId"] ?? "demo-user-001";
             var seed = int.TryParse(req.Query["seed"], out var sd) ? sd : Random.Shared.Next();
 
-            // 1. Datos de usuario → liga y torneo actual
+            // Datos de usuario, liga y torneo actual
             var usersContainer = cosmos.GetContainer("TennisManagerDB", "users");
             var user = (await usersContainer.ReadItemAsync<UserDocument>(userId, new PartitionKey(userId))).Resource;
 
@@ -28,17 +28,17 @@ namespace TennisApi
             var todayTournament = season.Tournaments.FirstOrDefault(t => t.Status == "current")
                                   ?? season.Tournaments.First(t => t.StartDay == season.CurrentDay);
 
-            // 2. Cargar los 24 participantes de la liga
+            // Cargar los 24 participantes de la liga
             var participants = await ParticipantLoader.Load(cosmos, user.LeagueId);
             participants.Sort((a, b) => a.Seed.CompareTo(b.Seed));
 
-            // 3. Byes + primera ronda saltando al humano
+            // Byes más primera ronda saltando al humano
             int byeCount = participants.Count - LargestPowerOfTwoBelow(participants.Count);
             var (playing, byes) = TournamentBracket.ApplyByes(participants, byeCount);
 
             var (matches, humanMatches, advancingNonHuman) = TournamentOrchestrator.ResolveRoundMultiHuman(playing, seed, new HashSet<string>());
 
-            // 4. Construir el estado persistente
+            // Construir el estado persistente
             var state = new ActiveTournamentDoc
             {
                 Id = userId,
@@ -49,7 +49,7 @@ namespace TennisApi
                 Seed = seed,
                 CurrentRound = 0,
                 HumanAlive = true,
-                Survivors = [.. byes, .. advancingNonHuman], // aún sin el resultado del humano
+                Survivors = [.. byes, .. advancingNonHuman], // Aún sin el resultado del humano
                 ReachedRound = [],
             };
 
@@ -63,22 +63,21 @@ namespace TennisApi
                 state.ReachedRound[loser.Id] = playing.Count;
             }
 
-            // 5. ¿El humano juega esta ronda, o tiene bye?
+            // ¿El humano juega esta ronda, o tiene bye?
             object payload;
-            if (humanMatches != null)
+            if (humanMatches.Count > 0)
             {
-                // Juega: devolvemos su rival para que Flutter lo anime
-                var opponent = humanMatches.Player1!.IsHuman ? humanMatches.Player2! : humanMatches.Player1!;
+                var hm = humanMatches[0];
+                var opponent = hm.Player1!.IsHuman ? hm.Player2! : hm.Player1!;
                 payload = HumanPlaysPayload(state, opponent, TournamentBracket.RoundName(playing.Count));
             }
             else
             {
-                // Bye en primera ronda: el humano está entre los byes.
-                // Avanzamos hasta su primer partido real.
+                // Bye en primera ronda, el humano está entre los byes. Avanzamos hasta su primer partido real.
                 payload = await AdvanceUntilHumanPlaysOrEnds(state, seed);
             }
 
-            // 6. Persistir estado
+            // Persistir estado
             var atContainer = cosmos.GetContainer("TennisManagerDB", "activeTournaments");
             await atContainer.UpsertItemAsync(state, new PartitionKey(userId));
 
@@ -101,8 +100,7 @@ namespace TennisApi
             }
         }
 
-        // Cuando el humano tiene bye o ya avanzó sin jugar, resolvemos rondas
-        // hasta que le toque jugar o el torneo acabe.
+        // Cuando el humano tiene bye o ya avanzó sin jugar, resolvemos rondas hasta que le toque jugar o el torneo acabe.
         private Task<object> AdvanceUntilHumanPlaysOrEnds(ActiveTournamentDoc state, int seed)
         {
             while (true)
@@ -127,10 +125,10 @@ namespace TennisApi
                     state.ReachedRound[loser.Id] = players.Count;
                 }
 
-                if (humanMatches != null)
+                if (humanMatches.Count > 0)
                 {
-                    var opponent = humanMatches.Player1!.IsHuman ? humanMatches.Player2! : humanMatches.Player1!;
-                    // Los que avanzan quedan pendientes de sumar al humano tras su partido
+                    var hm = humanMatches[0];
+                    var opponent = hm.Player1!.IsHuman ? hm.Player2! : hm.Player1!;
                     state.Survivors = advancing;
                     return Task.FromResult<object>(HumanPlaysPayload(state, opponent, TournamentBracket.RoundName(players.Count)));
                 }
