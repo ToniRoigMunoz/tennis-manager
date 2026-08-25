@@ -5,6 +5,10 @@ namespace TennisApi
 {
     public static class TournamentBootstrap
     {
+        // IDs de los humanos que siguen vivos, según el diccionario de estados
+        private static HashSet<string> AliveHumanIds(ActiveTournamentDoc state)
+            => state.HumanStates.Where(kv => kv.Value.Alive).Select(kv => kv.Key).ToHashSet();
+
         // Crea el torneo del día para un usuario y devuelve el payload de su primer partido
         public static async Task<object> CreateDailyTournament(CosmosClient cosmos, string userId)
         {
@@ -24,8 +28,8 @@ namespace TennisApi
             int byeCount = participants.Count - LargestPowerOfTwoBelow(participants.Count);
             var (playing, byes) = TournamentBracket.ApplyByes(participants, byeCount);
 
-            var (matches, humanMatch, advancingNonHuman) =
-                TournamentOrchestrator.ResolveRoundSkippingHuman(playing, seed, humanAlive: true);
+            var aliveHumans = participants.Where(p => p.IsHuman).Select(p => p.Id).ToHashSet();
+            var (matches, humanMatches, advancingNonHuman) = TournamentOrchestrator.ResolveRoundMultiHuman(playing, seed, aliveHumans);
 
             var state = new ActiveTournamentDoc
             {
@@ -63,9 +67,10 @@ namespace TennisApi
 
             // El humano puede tener bye en primera ronda entonces avanza hasta su primer partido
             object payload;
-            if (humanMatch != null)
+            var myMatch = humanMatches.FirstOrDefault(m => m.Player1!.Id == userId || m.Player2!.Id == userId);
+            if (myMatch != null)
             {
-                var opponent = humanMatch.Player1!.IsHuman ? humanMatch.Player2! : humanMatch.Player1!;
+                var opponent = myMatch.Player1!.Id == userId ? myMatch.Player2! : myMatch.Player1!;
                 state.HumanRoundIndex = state.History.Count;
                 if (state.HumanStates.TryGetValue(userId, out var hs)) 
                 {
@@ -99,8 +104,7 @@ namespace TennisApi
                 }
 
                 int playersInThisRound = players.Count;
-                var (matches, humanMatch, advancing) =
-                    TournamentOrchestrator.ResolveRoundSkippingHuman(players, seed + state.CurrentRound * 1000, state.HumanAlive);
+                var (matches, humanMatches, advancing) = TournamentOrchestrator.ResolveRoundMultiHuman(players, seed + state.CurrentRound * 1000, AliveHumanIds(state));
 
                 RecordRound(state, matches, TournamentBracket.RoundName(playersInThisRound));
                 foreach (var m in matches.Where(m => m.WinnerId != null))
@@ -109,9 +113,10 @@ namespace TennisApi
                     state.ReachedRound[loser.Id] = playersInThisRound;
                 }
 
-                if (humanMatch != null)
+                var myMatch = humanMatches.FirstOrDefault(m => m.Player1!.Id == state.UserId || m.Player2!.Id == state.UserId);
+                if (myMatch != null)
                 {
-                    var opponent = humanMatch.Player1!.IsHuman ? humanMatch.Player2! : humanMatch.Player1!;
+                    var opponent = myMatch.Player1!.Id == state.UserId ? myMatch.Player2! : myMatch.Player1!;
                     state.Survivors = advancing;
                     state.HumanRoundIndex = state.History.Count;
                     if (state.HumanStates.TryGetValue(state.UserId, out var hs)) 
