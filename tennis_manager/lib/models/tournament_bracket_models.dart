@@ -1,10 +1,10 @@
 // Respuesta de StartTournament / AdvanceTournament
 class TournamentStep {
-  final String status; // "humanPlays" | "finished"
+  final String status;
   final String? tournamentName;
   final String? surface;
   final String? roundName;
-  final String? unlockUtc; // hora UTC de desbloqueo (solo en waitingForRound)
+  final String? unlockUtc;
   final TournamentOpponent? opponent;
 
   // Solo cuando status == "finished"
@@ -13,7 +13,9 @@ class TournamentStep {
   final String? championName;
   final TournamentRewards? rewards;
   final List<BracketRound> history;
-  final String? nextTournamentName; // en seasonDayDone
+  final String? nextTournamentName;
+  final bool? humanWon;
+  final String? replayScore;
 
   const TournamentStep({
     required this.status,
@@ -28,6 +30,8 @@ class TournamentStep {
     this.rewards,
     this.history = const [],
     this.nextTournamentName,
+    this.humanWon,
+    this.replayScore,
   });
 
   bool get isFinished => status == 'finished';
@@ -35,6 +39,7 @@ class TournamentStep {
   bool get isWaitingForRound => status == 'waitingForRound';
   bool get isNoPendingMatch => status == 'noPendingMatch';
   bool get isSeasonDayDone => status == 'seasonDayDone';
+  bool get isReplayMatch => status == 'replayMatch';
 
   // Hora de desbloqueo convertida a la zona horaria local del dispositivo
   DateTime? get unlockLocalTime {
@@ -63,6 +68,8 @@ class TournamentStep {
             .toList() ??
         const [],
     nextTournamentName: json['nextTournamentName'] as String?,
+    humanWon: json['humanWon'] as bool?,
+    replayScore: json['setsScore'] as String?,
   );
 }
 

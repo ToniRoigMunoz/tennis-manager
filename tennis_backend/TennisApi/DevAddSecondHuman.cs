@@ -53,7 +53,8 @@ namespace TennisApi
             var league = (await leagues.ReadItemAsync<LeagueDocument>(leagueId, new PartitionKey(leagueId))).Resource;
 
             // Elegir un bot a reemplazar (el primero que no sea el humano existente)
-            var botStanding = league.Standings.FirstOrDefault(s => !string.IsNullOrEmpty(s.BotId));
+            var botStanding = league.Standings.FirstOrDefault(s => !string.IsNullOrEmpty(s.BotId) && s.Position == 12) 
+                ?? league.Standings.FirstOrDefault(s => !string.IsNullOrEmpty(s.BotId));
             string replacedInfo;
             if (botStanding != null)
             {

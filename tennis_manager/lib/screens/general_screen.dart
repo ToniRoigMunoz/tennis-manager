@@ -13,6 +13,7 @@ import 'widgets/error_view.dart';
 import 'match_screen.dart';
 import '../providers/user_resources_provider.dart';
 import 'widgets/waiting_round_card.dart';
+import 'widgets/replay_match_card.dart';
 
 class GeneralScreen extends ConsumerWidget {
   final VoidCallback onRankingTap;
@@ -92,6 +93,15 @@ class GeneralScreen extends ConsumerWidget {
           );
         } else if (flow != null && flow.step.isWaitingForRound) {
           topCard = WaitingRoundCard(step: flow.step);
+        } else if (flow != null && flow.step.isReplayMatch) {
+          topCard = ReplayMatchCard(
+            step: flow.step,
+            onSeen: () {
+              ref.invalidate(tournamentFlowProvider);
+              ref.invalidate(playerProvider);
+              ref.invalidate(userDataProvider);
+            },
+          );
         } else if (flow != null && flow.step.isSeasonDayDone) {
           topCard = NoMatchCard(
             nextTournamentName: flow.step.nextTournamentName,

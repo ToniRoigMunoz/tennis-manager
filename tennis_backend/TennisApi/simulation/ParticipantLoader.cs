@@ -8,24 +8,15 @@ namespace TennisApi
         {
             var result = new List<Participant>();
 
-            // Bots (una consulta, misma partición)
-            var botsContainer = cosmos.GetContainer("TennisManagerDB", "bots");
-            var botQuery = new QueryDefinition("SELECT * FROM c");
-            var botOpts = new QueryRequestOptions { PartitionKey = new PartitionKey(leagueId) };
-            using (var iter = botsContainer.GetItemQueryIterator<BotDocument>(botQuery, requestOptions: botOpts))
-            {
-                while (iter.HasMoreResults)
-                    foreach (var b in await iter.ReadNextAsync())
-                        result.Add(new Participant
-                        {
-                            Id = b.Id, Name = b.Name, Overall = b.Overall, IsHuman = false,
-                            Sim = new SimPlayer(b.Name, b.PlayingStyle, AttrsToDict(b.Physical, b.Mental, b.Technical)),
-                        });
-            }
-
-            // Liga → seeds y humanos
+            // Liga primero: nos dice QUIÉN está realmente en la liga (24 standings)
             var leaguesContainer = cosmos.GetContainer("TennisManagerDB", "leagues");
             var league = (await leaguesContainer.ReadItemAsync<LeagueDocument>(leagueId, new PartitionKey(leagueId))).Resource;
+
+            // IDs de los bots que SÍ están en los standings (ignora bots huérfanos del contenedor)
+            var validBotIds = league.Standings
+                .Where(s => !string.IsNullOrEmpty(s.BotId))
+                .Select(s => s.BotId!)
+                .ToHashSet();
 
             var seedByRef = new Dictionary<string, int>();
             foreach (var s in league.Standings)
@@ -33,10 +24,29 @@ namespace TennisApi
                 var key = s.UserId ?? s.BotId;
                 if (key != null) seedByRef[key] = s.Position;
             }
+
+            // Bots: cargar del contenedor pero quedarnos SOLO con los que están en los standings
+            var botsContainer = cosmos.GetContainer("TennisManagerDB", "bots");
+            var botQuery = new QueryDefinition("SELECT * FROM c");
+            var botOpts = new QueryRequestOptions { PartitionKey = new PartitionKey(leagueId) };
+            using (var iter = botsContainer.GetItemQueryIterator<BotDocument>(botQuery, requestOptions: botOpts))
+            {
+                while (iter.HasMoreResults)
+                    foreach (var b in await iter.ReadNextAsync())
+                    {
+                        if (!validBotIds.Contains(b.Id)) continue; // descartar bots huérfanos
+                        result.Add(new Participant
+                        {
+                            Id = b.Id, Name = b.Name, Overall = b.Overall, IsHuman = false,
+                            Sim = new SimPlayer(b.Name, b.PlayingStyle, AttrsToDict(b.Physical, b.Mental, b.Technical)),
+                        });
+                    }
+            }
+
             foreach (var p in result)
                 if (seedByRef.TryGetValue(p.Id, out var seed)) p.Seed = seed;
 
-            // Humanos
+            // Humanos (igual que antes)
             var playersContainer = cosmos.GetContainer("TennisManagerDB", "players");
             foreach (var s in league.Standings.Where(x => x.UserId != null))
             {

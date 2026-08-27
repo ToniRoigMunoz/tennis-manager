@@ -1,6 +1,7 @@
 # Ignorar SDKs pesados
 android-sdk/
 flutter/
+chrome-dev/
 
 # Archivos ocultos del sistema operativo
 .DS_Store

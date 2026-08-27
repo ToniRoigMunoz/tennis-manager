@@ -142,9 +142,27 @@ namespace TennisApi
                         };
                     }
                 }
-                else
+                                else
                 {
-                    result = new { status = "noPendingMatch", tournamentName = state.TournamentName };
+                    // No hay partido pendiente montado. Distinguir dos casos:
+                    int humanRound = state.RoundIndexOf(userId);
+                    if (state.IsAlive(userId) && humanRound > state.History.Count)
+                    {
+                        // El humano ganó su ronda y espera a que se monte la siguiente
+                        // (aún no existe porque otros jugadores no han completado su ronda).
+                        result = new
+                        {
+                            status = "waitingForRound",
+                            tournamentName = state.TournamentName,
+                            roundName = ServerClock.RoundNameByIndex(humanRound),
+                            unlockUtc = ServerClock.RoundUnlockTime(season, humanRound).ToString("o"),
+                            currentRound = humanRound,
+                        };
+                    }
+                    else
+                    {
+                        result = new { status = "noPendingMatch", tournamentName = state.TournamentName };
+                    }
                 }
 
                 var res = req.CreateResponse(HttpStatusCode.OK);

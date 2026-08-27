@@ -31,14 +31,12 @@ namespace TennisApi
                 return notFound;
             }
 
-            // Devolvemos un resumen centrado en lo que nos interesa depurar:
-            // los campos singulares viejos vs. el diccionario nuevo en paralelo.
+            // Devolvemos un resumen centrado en lo que nos interesa depurar los campos singulares viejos y el diccionario nuevo en paralelo.
             var summary = new
             {
                 leagueId = state.LeagueId,
                 finished = state.Finished,
                 championId = state.ChampionId,
-                // Campos singulares (los que mandan ahora)
                 singular = new
                 {
                     userId = state.UserId,
@@ -46,8 +44,18 @@ namespace TennisApi
                     humanEliminatedRound = state.HumanEliminatedRound,
                     humanRoundIndex = state.HumanRoundIndex,
                 },
-                // Diccionario nuevo (la sombra que rellenamos)
                 humanStates = state.HumanStates,
+                history = state.History.Select(r => new
+                {
+                    roundName = r.RoundName,
+                    matches = r.Results.Select(m => new
+                    {
+                        p1 = m.P1Name,
+                        p2 = m.P2Name,
+                        winner = m.WinnerName,
+                    }).ToList(),
+                }).ToList(),
+                survivors = state.Survivors.Select(p => p.Name).ToList(),
             };
 
             var res = req.CreateResponse(HttpStatusCode.OK);
