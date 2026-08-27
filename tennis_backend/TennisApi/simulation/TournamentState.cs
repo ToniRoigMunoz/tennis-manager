@@ -27,8 +27,6 @@ namespace TennisApi
 
         // Multi-humano.
         [JsonPropertyName("humanStates")] public Dictionary<string, HumanTournamentState> HumanStates { get; set; } = [];
-        [JsonPropertyName("name")] public string Name { get; set; } = "";
-        [JsonPropertyName("lastSeenRound")] public int LastSeenRound { get; set; } = 0;
 
         // Ronda (ventana) de un humano concreto. Lee del diccionario multi-humano. Si no estuviera, cae al campo singular viejo (seguridad durante la transición).
         public int RoundIndexOf(string userId)
@@ -69,5 +67,6 @@ namespace TennisApi
         [JsonPropertyName("eliminatedRound")]  public int EliminatedRound { get; set; } = -1;
         [JsonPropertyName("roundIndex")]       public int RoundIndex { get; set; } = 1;
         [JsonPropertyName("name")] public string Name { get; set; } = "";
+        [JsonPropertyName("lastSeenRound")] public int LastSeenRound { get; set; } = 0;
     }
 }
