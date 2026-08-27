@@ -35,7 +35,7 @@ namespace TennisApi
                     state = null; // No hay torneo, lo crearemos abajo
                 }
 
-                                // Si no existe torneo, creamos el del día
+                // Si no existe torneo, creamos el del día
                 if (state == null)
                 {
                     var payload = await TournamentBootstrap.CreateDailyTournament(cosmos, userId);
@@ -45,7 +45,32 @@ namespace TennisApi
                     return resNew;
                 }
 
-                // Si el torneo del día ya terminó, no creamos otro
+                                // Cargar la temporada para consultar el reloj
+                var toursC = cosmos.GetContainer("TennisManagerDB", "tournaments");
+                var season = (await toursC.ReadItemAsync<TournamentDocument>(
+                    seasonId, new PartitionKey(seasonId))).Resource;
+
+                // Poner al día el torneo (simular rondas cuya ventana ya se cerró)
+                await TournamentClockSync.SyncRoundsToClock(cosmos, state, season);
+
+                // ¿Tiene el humano un resultado que aún no ha visto? (reproducción)
+                var replay = BuildReplayIfPending(state, userId);
+                if (replay != null)
+                {
+                    // Marcar como visto antes de devolver, para que no se repita
+                    if (state.HumanStates.TryGetValue(userId, out var hsSeen))
+                        hsSeen.LastSeenRound = hsSeen.RoundIndex;
+                    await atContainer.UpsertItemAsync(state, new PartitionKey(leagueId));
+
+                    var resReplay = req.CreateResponse(HttpStatusCode.OK);
+                    resReplay.Headers.Add("Content-Type", "application/json");
+                    await resReplay.WriteStringAsync(JsonSerializer.Serialize(replay, Opts));
+                    return resReplay;
+                }
+
+                await atContainer.UpsertItemAsync(state, new PartitionKey(leagueId));
+
+                // Si el torneo terminó o el humano cayó (y ya vio su resultado), día hecho
                 if (state.Finished || !state.IsAlive(userId))
                 {
                     var doneResult = await SeasonDayDonePayload(state);
@@ -54,11 +79,6 @@ namespace TennisApi
                     await resDone.WriteStringAsync(JsonSerializer.Serialize(doneResult, Opts));
                     return resDone;
                 }
-
-                // Cargar la temporada para consultar el reloj
-                var toursC = cosmos.GetContainer("TennisManagerDB", "tournaments");
-                var season = (await toursC.ReadItemAsync<TournamentDocument>(
-                    seasonId, new PartitionKey(seasonId))).Resource;
 
                 // Poner al día el torneo (simular rondas cuya ventana ya se cerró)
                 await TournamentClockSync.SyncRoundsToClock(cosmos, state, season);
@@ -293,6 +313,48 @@ namespace TennisApi
                 status = "seasonDayDone",
                 todayTournamentName = state.TournamentName,
                 nextTournamentName,
+            };
+        }
+
+        // Si el humano tiene un partido resuelto en su ronda actual que aún no ha visto, devuelve el payload de reproducción; si no, null.
+        private object? BuildReplayIfPending(ActiveTournamentDoc state, string userId)
+        {
+            if (!state.HumanStates.TryGetValue(userId, out var hs)) return null;
+
+            int myRound = hs.RoundIndex; // La ronda en la que está el humano
+            if (hs.LastSeenRound >= myRound) return null; // Ya vio el resultado de esta ronda
+            if (state.History.Count < myRound) return null;
+
+            // El partido del humano en su ronda actual
+            var round = state.History[myRound - 1];
+            var myName = hs.Name;
+            var myMatch = round.Results.FirstOrDefault(r =>
+                r.InvolvesHuman && (r.P1Name == myName || r.P2Name == myName));
+
+            // Solo hay reproducción si el partido ya tiene resultado (lo fijó otro)
+            if (myMatch == null || string.IsNullOrEmpty(myMatch.WinnerId)) return null;
+
+            bool humanWon = myMatch.WinnerName == myName;
+            var opponentName = myMatch.P1Name == myName ? myMatch.P2Name : myMatch.P1Name;
+            var opponent = state.Survivors.FirstOrDefault(p => p.Name == opponentName)
+                        ?? null;
+
+            return new
+            {
+                status = "replayMatch",
+                tournamentName = state.TournamentName,
+                surface = state.Surface,
+                roundName = ServerClock.RoundNameByIndex(myRound),
+                opponent = new
+                {
+                    id = opponent?.Id ?? "unknown",
+                    name = opponentName,
+                    overall = opponent?.Overall ?? 70,
+                },
+                // El resultado ya fijado, para que Flutter anime hasta él
+                humanWon,
+                setsScore = myMatch.SetsScore,
+                seed = state.Seed,
             };
         }
     }
